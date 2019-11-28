@@ -46,7 +46,7 @@ The CPU is nearing completion but still under development. The following compone
   - There are two read ports and one write port.
   - Each vector register has 16 elements (configurable).
 * An address generation unit (AGU).
-  - The AGU supports all [addressing modes](../../doc/AddressingModes.md).
+  - The AGU supports all addressing modes.
 * A single 32-bit Wishbone (B4 pipelined) interface to the memory.
   - Instruction and data requests are arbitrated (data has precedence).
   - One memory request can be completed every cycle.
