@@ -24,13 +24,16 @@ use work.types.all;
 use work.config.all;
 
 entity alu is
+  generic(
+    CONFIG : T_CORE_CONFIG
+  );
   port(
-      i_op : in T_ALU_OP;                                      -- Operation
-      i_src_a : in std_logic_vector(C_WORD_SIZE-1 downto 0);   -- Source operand A
-      i_src_b : in std_logic_vector(C_WORD_SIZE-1 downto 0);   -- Source operand B
-      i_packed_mode : in T_PACKED_MODE;                        -- Packed mode
-      o_result : out std_logic_vector(C_WORD_SIZE-1 downto 0)  -- ALU result
-    );
+    i_op : in T_ALU_OP;                                      -- Operation
+    i_src_a : in std_logic_vector(C_WORD_SIZE-1 downto 0);   -- Source operand A
+    i_src_b : in std_logic_vector(C_WORD_SIZE-1 downto 0);   -- Source operand B
+    i_packed_mode : in T_PACKED_MODE;                        -- Packed mode
+    o_result : out std_logic_vector(C_WORD_SIZE-1 downto 0)  -- ALU result
+  );
 end;
 
 architecture rtl of alu is
@@ -75,6 +78,9 @@ begin
   ------------------------------------------------------------------------------------------------
 
   CPUID: entity work.cpuid
+    generic map (
+      CONFIG => CONFIG
+    )
     port map (
       i_src_a => i_src_a,
       i_src_b => i_src_b,
@@ -127,6 +133,9 @@ begin
 
   -- C_ALU_REV
   Rev: entity work.rev32
+    generic map (
+      CONFIG => CONFIG
+    )
     port map (
       i_src => i_src_a,
       i_packed_mode => i_packed_mode,
@@ -154,6 +163,9 @@ begin
 
   -- C_ALU_CLZ
   AluCLZ32: entity work.clz32
+    generic map (
+      CONFIG => CONFIG
+    )
     port map (
       i_src => i_src_a,
       i_packed_mode => i_packed_mode,
@@ -167,6 +179,9 @@ begin
 
   -- Add/sub.
   Adder: entity work.add32
+    generic map (
+      CONFIG => CONFIG
+    )
     port map (
       i_src_a => i_src_a,
       i_src_b => i_src_b,
@@ -175,6 +190,9 @@ begin
     );
 
   Subber: entity work.sub32
+    generic map (
+      CONFIG => CONFIG
+    )
     port map (
       i_src_a => i_src_a,
       i_src_b => i_src_b,
@@ -184,6 +202,9 @@ begin
 
   -- Comparison operations.
   Compare: entity work.cmp32
+    generic map (
+      CONFIG => CONFIG
+    )
     port map (
       i_src_a => i_src_a,
       i_src_b => i_src_b,
@@ -223,6 +244,9 @@ begin
         '-' when others;
 
   AluShifter: entity work.shift32
+    generic map (
+      CONFIG => CONFIG
+    )
     port map (
       i_right => s_shift_is_right,
       i_arithmetic => s_shift_is_arithmetic,

@@ -33,6 +33,9 @@ use work.types.all;
 use work.config.all;
 
 entity div is
+  generic(
+    CONFIG : T_CORE_CONFIG
+  );
   port(
     -- Control signals.
     i_clk : in std_logic;
@@ -111,7 +114,7 @@ begin
       o_d4_next_result_ready => s_d4_next_div32_result_ready
     );
 
-  PACKED_GEN: if C_CPU_HAS_PO generate
+  PACKED_GEN: if CONFIG.HAS_PO generate
     -- 16-bit pipelines.
     div16Gen: for k in 1 to 2 generate
       signal s_d3_next_result_ready : std_logic_vector(1 to 2);

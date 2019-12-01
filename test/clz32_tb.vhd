@@ -20,6 +20,7 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+use work.config.all;
 use work.types.all;
 
 entity clz32_tb is
@@ -31,6 +32,9 @@ architecture behavioral of clz32_tb is
   signal s_result : std_logic_vector(31 downto 0);
 begin
   clz32_0: entity work.clz32
+    generic map (
+      CONFIG => C_CORE_CONFIG_FULL
+    )
     port map (
       i_src => s_src,
       i_packed_mode => s_packed_mode,

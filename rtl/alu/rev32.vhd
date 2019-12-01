@@ -24,16 +24,19 @@ use work.types.all;
 use work.config.all;
 
 entity rev32 is
+  generic(
+    CONFIG : T_CORE_CONFIG
+  );
   port(
-      i_src         : in  std_logic_vector(31 downto 0);
-      i_packed_mode : in  T_PACKED_MODE;
-      o_result      : out std_logic_vector(31 downto 0)
-    );
+    i_src         : in  std_logic_vector(31 downto 0);
+    i_packed_mode : in  T_PACKED_MODE;
+    o_result      : out std_logic_vector(31 downto 0)
+  );
 end rev32;
 
 architecture rtl of rev32 is
 begin
-  PACKED_GEN: if C_CPU_HAS_PO generate
+  PACKED_GEN: if CONFIG.HAS_PO generate
     process(i_src, i_packed_mode)
       variable v_lo : integer;
       variable v_hi : integer;

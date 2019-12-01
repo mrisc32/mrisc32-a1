@@ -42,6 +42,7 @@ package config is
   --------------------------------------------------------------------------------------------------
   -- Number of vector elements in each vector register.
   -- NOTE: The the number of vector elements should be at least 16.
+  -- TODO(m): Make this part of T_CORE_CONFIG instead.
   --------------------------------------------------------------------------------------------------
   constant C_LOG2_VEC_REG_ELEMENTS : integer := 4;
   constant C_VEC_REG_ELEMENTS : integer := 2**C_LOG2_VEC_REG_ELEMENTS;
@@ -57,44 +58,62 @@ package config is
   constant C_PC_REG : integer := 31;  -- PC = S31
 
   --------------------------------------------------------------------------------------------------
-  -- The start PC after reset.
+  -- Per-core configuration parameters (pass these when instantiating the core entity).
   --------------------------------------------------------------------------------------------------
-  constant C_RESET_PC : std_logic_vector(C_WORD_SIZE-1 downto 0) := X"00000200";
 
-  --------------------------------------------------------------------------------------------------
-  -- Support vector operations (including the register file, V0-V31).
-  --------------------------------------------------------------------------------------------------
-  constant C_CPU_HAS_VEC : boolean := true;
+  type T_CORE_CONFIG is record
+    -- The start PC after reset.
+    RESET_PC : std_logic_vector(C_WORD_SIZE-1 downto 0);
 
-  --------------------------------------------------------------------------------------------------
-  -- Support packed operations (i.e. .B, .H versions of instructions).
-  --------------------------------------------------------------------------------------------------
-  constant C_CPU_HAS_PO : boolean := true;
+    -- Support vector operations (including the register file, V0-V31).
+    HAS_VEC : boolean;
 
-  --------------------------------------------------------------------------------------------------
-  -- Include hardware multiply (integer only).
-  --------------------------------------------------------------------------------------------------
-  constant C_CPU_HAS_MUL : boolean := true;
+    -- Support packed operations (i.e. .B, .H versions of instructions).
+    HAS_PO : boolean;
 
-  --------------------------------------------------------------------------------------------------
-  -- Include hardware division (integer and floating point).
-  --------------------------------------------------------------------------------------------------
-  constant C_CPU_HAS_DIV : boolean := true;
+    -- Include hardware multiply (integer only).
+    HAS_MUL : boolean;
 
-  --------------------------------------------------------------------------------------------------
-  -- Support saturating and halving arithmetic operations.
-  --------------------------------------------------------------------------------------------------
-  constant C_CPU_HAS_SA : boolean := true;
+    -- Include hardware division (integer and floating point).
+    HAS_DIV : boolean;
 
-  --------------------------------------------------------------------------------------------------
-  -- Include an FPU.
-  -- NOTE: For full floating point support, C_CPU_HAS_DIV must also be true.
-  --------------------------------------------------------------------------------------------------
-  constant C_CPU_HAS_FP : boolean := true;
+    -- Support saturating and halving arithmetic operations.
+    HAS_SA : boolean;
 
-  --------------------------------------------------------------------------------------------------
-  -- Support the FSQRT instruction.
-  -- NOTE: This has not yet been implemented, so this flag should always be set to false.
-  --------------------------------------------------------------------------------------------------
-  constant C_CPU_HAS_SQRT : boolean := false;
+    -- Include an FPU.
+    -- NOTE: For full floating point support, HAS_DIV must also be true.
+    HAS_FP : boolean;
+
+    -- Support the FSQRT instruction.
+    -- NOTE: This has not yet been implemented, so this flag should always be set to false.
+    HAS_SQRT : boolean;
+  end record T_CORE_CONFIG;
+
+
+  -- Full configuration.
+  constant C_CORE_CONFIG_FULL : T_CORE_CONFIG := (
+    RESET_PC => X"00000200",
+    HAS_VEC => true,
+    HAS_PO => true,
+    HAS_MUL => true,
+    HAS_DIV => true,
+    HAS_SA => true,
+    HAS_FP => true,
+    HAS_SQRT => false
+  );
+
+  -- Minimal configuration.
+  constant C_CORE_CONFIG_MINIMAL : T_CORE_CONFIG := (
+    RESET_PC => X"00000200",
+    HAS_VEC => false,
+    HAS_PO => false,
+    HAS_MUL => false,
+    HAS_DIV => false,
+    HAS_SA => false,
+    HAS_FP => false,
+    HAS_SQRT => false
+  );
+
+  -- Default configuration: Full.
+  constant C_CORE_CONFIG_DEFAULT : T_CORE_CONFIG := C_CORE_CONFIG_FULL;
 end package;

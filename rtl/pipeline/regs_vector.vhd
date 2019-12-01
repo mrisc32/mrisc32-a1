@@ -34,6 +34,9 @@ use work.config.all;
 ---------------------------------------------------------------------------------------------------
 
 entity regs_vector is
+  generic(
+    CONFIG : T_CORE_CONFIG
+  );
   port (
     i_clk : in std_logic;
     i_rst : in std_logic;

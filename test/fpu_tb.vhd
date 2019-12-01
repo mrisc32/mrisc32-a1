@@ -19,8 +19,8 @@
 
 library ieee;
 use ieee.std_logic_1164.all;
-use work.types.all;
 use work.config.all;
+use work.types.all;
 
 --  A testbench has no ports.
 entity fpu_tb is
@@ -42,6 +42,9 @@ architecture behav of fpu_tb is
 begin
   --  Component instantiation.
   fpu_0: entity work.fpu
+    generic map (
+      CONFIG => C_CORE_CONFIG_FULL
+    )
     port map (
       i_clk => s_clk,
       i_rst => s_rst,

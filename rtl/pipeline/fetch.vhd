@@ -47,6 +47,9 @@ use ieee.numeric_std.all;
 use work.config.all;
 
 entity fetch is
+  generic(
+    CONFIG : T_CORE_CONFIG
+  );
   port(
     -- Control signals.
     i_clk : in std_logic;
@@ -138,7 +141,7 @@ begin
   begin
     if i_rst = '1' then
       -- We start with a forced jump to the reset PC.
-      s_if1_latched_pccorr_adjusted_pc <= C_RESET_PC(C_WORD_SIZE-1 downto 2);
+      s_if1_latched_pccorr_adjusted_pc <= CONFIG.RESET_PC(C_WORD_SIZE-1 downto 2);
       s_if1_latched_pccorr_adjust <= '1';
       s_if1_latched_btb_target <= (others => '0');
       s_if1_latched_btb_taken <= '0';

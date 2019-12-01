@@ -20,22 +20,26 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+use work.config.all;
 use work.types.all;
 
 entity shift32 is
+  generic(
+    CONFIG : T_CORE_CONFIG
+  );
   port(
-      i_right       : in  std_logic;  -- '1' for right shifts, '0' for left
-      i_arithmetic  : in  std_logic;  -- '1' for arihtmetic shifts, '0' for logic
-      i_src         : in  std_logic_vector(31 downto 0);
-      i_shift       : in  std_logic_vector(31 downto 0);
-      i_packed_mode : in  T_PACKED_MODE;
-      o_result      : out std_logic_vector(31 downto 0)
-    );
+    i_right       : in  std_logic;  -- '1' for right shifts, '0' for left
+    i_arithmetic  : in  std_logic;  -- '1' for arihtmetic shifts, '0' for logic
+    i_src         : in  std_logic_vector(31 downto 0);
+    i_shift       : in  std_logic_vector(31 downto 0);
+    i_packed_mode : in  T_PACKED_MODE;
+    o_result      : out std_logic_vector(31 downto 0)
+  );
 end shift32;
 
 architecture rtl of shift32 is
 begin
-  -- TODO(m): Optimize this when C_CPU_HAS_PO = false.
+  -- TODO(m): Optimize this when CONFIG.HAS_PO = false.
 
   process(i_right, i_arithmetic, i_src, i_shift, i_packed_mode)
     variable v_shift : integer;

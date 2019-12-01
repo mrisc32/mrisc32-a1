@@ -19,6 +19,7 @@
 
 library ieee;
 use ieee.std_logic_1164.all;
+use work.config.all;
 use work.types.all;
 
 entity sau_tb is
@@ -36,6 +37,9 @@ architecture behavioral of sau_tb is
   signal s_next_result_ready : std_logic;
 begin
   sau_0: entity work.sau
+    generic map (
+      CONFIG => C_CORE_CONFIG_FULL
+    )
     port map (
       i_clk => s_clk,
       i_rst => s_rst,

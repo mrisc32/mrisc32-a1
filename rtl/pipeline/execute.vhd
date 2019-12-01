@@ -27,6 +27,9 @@ use work.types.all;
 use work.config.all;
 
 entity execute is
+  generic(
+    CONFIG : T_CORE_CONFIG
+  );
   port(
     -- Control signals.
     i_clk : in std_logic;
@@ -307,8 +310,11 @@ begin
     );
 
   -- Instantiate the saturating arithmetic unit.
-  SAU_GEN: if C_CPU_HAS_SA generate
+  SAU_GEN: if CONFIG.HAS_SA generate
     sau_1: entity work.sau
+      generic map (
+        CONFIG => CONFIG
+      )
       port map (
         i_clk => i_clk,
         i_rst => i_rst,
@@ -327,8 +333,11 @@ begin
   end generate;
 
   -- Instantiate the multiply unit.
-  MUL_GEN: if C_CPU_HAS_MUL generate
+  MUL_GEN: if CONFIG.HAS_MUL generate
     mul_1: entity work.mul
+      generic map (
+        CONFIG => CONFIG
+      )
       port map (
         i_clk => i_clk,
         i_rst => i_rst,
@@ -347,8 +356,11 @@ begin
   end generate;
 
   -- Instantiate the division unit.
-  DIV_GEN: if C_CPU_HAS_DIV generate
+  DIV_GEN: if CONFIG.HAS_DIV generate
     div_1: entity work.div
+      generic map (
+        CONFIG => CONFIG
+      )
       port map (
         i_clk => i_clk,
         i_rst => i_rst,
@@ -373,8 +385,11 @@ begin
   end generate;
 
   -- Instantiate the floating point unit.
-  FPU_GEN: if C_CPU_HAS_FP generate
+  FPU_GEN: if CONFIG.HAS_FP generate
     fpu_1: entity work.fpu
+      generic map (
+        CONFIG => CONFIG
+      )
       port map (
         i_clk => i_clk,
         i_rst => i_rst,
@@ -407,6 +422,9 @@ begin
 
   -- Instantiate the ALU (arithmetic logic unit).
   alu_1: entity work.alu
+      generic map (
+        CONFIG => CONFIG
+      )
     port map (
       i_op => i_alu_op,
       i_src_a => i_src_a,

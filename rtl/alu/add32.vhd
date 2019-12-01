@@ -24,12 +24,15 @@ use work.types.all;
 use work.config.all;
 
 entity add32 is
+  generic(
+    CONFIG : T_CORE_CONFIG
+  );
   port(
-      i_src_a       : in  std_logic_vector(31 downto 0);
-      i_src_b       : in  std_logic_vector(31 downto 0);
-      i_packed_mode : in  T_PACKED_MODE;
-      o_result      : out std_logic_vector(31 downto 0)
-    );
+    i_src_a       : in  std_logic_vector(31 downto 0);
+    i_src_b       : in  std_logic_vector(31 downto 0);
+    i_packed_mode : in  T_PACKED_MODE;
+    o_result      : out std_logic_vector(31 downto 0)
+  );
 end add32;
 
 architecture rtl of add32 is
@@ -46,7 +49,7 @@ begin
   -- 32-bit addition.
   s_res_32 <= unsigned(i_src_a) + unsigned(i_src_b);
 
-  PACKED_GEN: if C_CPU_HAS_PO generate
+  PACKED_GEN: if CONFIG.HAS_PO generate
     -- 2x 16-bit addition.
     s_res_16_0 <= unsigned(i_src_a(15 downto 0)) + unsigned(i_src_b(15 downto 0));
     s_res_16_1 <= unsigned(i_src_a(31 downto 16)) + unsigned(i_src_b(31 downto 16));

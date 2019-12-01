@@ -39,6 +39,9 @@ use work.config.all;
 ---------------------------------------------------------------------------------------------------
 
 entity vector_control is
+  generic(
+    CONFIG : T_CORE_CONFIG
+  );
   port (
     i_clk : in std_logic;
     i_rst : in std_logic;

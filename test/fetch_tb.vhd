@@ -20,8 +20,8 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
-use work.types.all;
 use work.config.all;
+use work.types.all;
 
 entity fetch_tb is
 end fetch_tb;
@@ -52,6 +52,9 @@ architecture behavioral of fetch_tb is
   signal s_bubble : std_logic;
 begin
   fetch_0: entity work.fetch
+    generic map (
+      CONFIG => C_CORE_CONFIG_FULL
+    )
     port map (
       i_clk => s_clk,
       i_rst => s_rst,

@@ -23,11 +23,14 @@ use work.types.all;
 use work.config.all;
 
 entity cpuid is
+  generic(
+    CONFIG : T_CORE_CONFIG
+  );
   port(
-      i_src_a : in std_logic_vector(C_WORD_SIZE-1 downto 0);
-      i_src_b : in std_logic_vector(C_WORD_SIZE-1 downto 0);
-      o_result : out std_logic_vector(C_WORD_SIZE-1 downto 0)
-    );
+    i_src_a : in std_logic_vector(C_WORD_SIZE-1 downto 0);
+    i_src_b : in std_logic_vector(C_WORD_SIZE-1 downto 0);
+    o_result : out std_logic_vector(C_WORD_SIZE-1 downto 0)
+  );
 end cpuid;
 
 architecture rtl of cpuid is
@@ -42,13 +45,13 @@ begin
       o_result <= to_word(C_LOG2_VEC_REG_ELEMENTS);
     elsif (i_src_a = to_word(1)) and (i_src_b = to_word(0)) then
       -- 00000001:00000000 => CPU features
-      o_result(0) <= to_std_logic(C_CPU_HAS_VEC);
-      o_result(1) <= to_std_logic(C_CPU_HAS_PO);
-      o_result(2) <= to_std_logic(C_CPU_HAS_MUL);
-      o_result(3) <= to_std_logic(C_CPU_HAS_DIV);
-      o_result(4) <= to_std_logic(C_CPU_HAS_SA);
-      o_result(5) <= to_std_logic(C_CPU_HAS_FP);
-      o_result(6) <= to_std_logic(C_CPU_HAS_SQRT);
+      o_result(0) <= to_std_logic(CONFIG.HAS_VEC);
+      o_result(1) <= to_std_logic(CONFIG.HAS_PO);
+      o_result(2) <= to_std_logic(CONFIG.HAS_MUL);
+      o_result(3) <= to_std_logic(CONFIG.HAS_DIV);
+      o_result(4) <= to_std_logic(CONFIG.HAS_SA);
+      o_result(5) <= to_std_logic(CONFIG.HAS_FP);
+      o_result(6) <= to_std_logic(CONFIG.HAS_SQRT);
       o_result(C_WORD_SIZE-1 downto 7) <= (others => '0');
     else
       -- All unsupported commands return zero.

@@ -23,11 +23,14 @@ use work.types.all;
 use work.config.all;
 
 entity clz32 is
+  generic(
+    CONFIG : T_CORE_CONFIG
+  );
   port(
-      i_src : in std_logic_vector(31 downto 0);
-      i_packed_mode : in T_PACKED_MODE;
-      o_result : out std_logic_vector(31 downto 0)
-    );
+    i_src : in std_logic_vector(31 downto 0);
+    i_packed_mode : in T_PACKED_MODE;
+    o_result : out std_logic_vector(31 downto 0)
+  );
 end clz32;
 
 
@@ -136,7 +139,7 @@ begin
   s_result_32(1) <= s_c5_1;
   s_result_32(0) <= s_c5_0;
 
-  PACKED_GEN: if C_CPU_HAS_PO generate
+  PACKED_GEN: if CONFIG.HAS_PO generate
     -- 16x2-bit result.
     s_result_16(31 downto 21) <= (others => '0');
     s_result_16(20) <= s_c4_4(1);

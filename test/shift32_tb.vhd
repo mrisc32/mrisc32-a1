@@ -19,6 +19,7 @@
 
 library ieee;
 use ieee.std_logic_1164.all;
+use work.config.all;
 use work.types.all;
 
 entity shift32_tb is
@@ -51,6 +52,9 @@ architecture behavioral of shift32_tb is
 
 begin
   shift32_0: entity work.shift32
+    generic map (
+      CONFIG => C_CORE_CONFIG_FULL
+    )
     port map (
       i_right => s_right,
       i_arithmetic => s_arithmetic,

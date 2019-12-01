@@ -27,6 +27,9 @@ use work.config.all;
 use work.debug.all;
 
 entity core is
+  generic(
+    CONFIG : T_CORE_CONFIG := C_CORE_CONFIG_DEFAULT
+  );
   port(
     -- Control signals.
     i_clk : in std_logic;
@@ -85,6 +88,9 @@ begin
   --------------------------------------------------------------------------------------------------
 
   pipeline_1: entity work.pipeline
+    generic map(
+      CONFIG => CONFIG
+    )
     port map (
       i_clk => i_clk,
       i_rst => i_rst,
@@ -120,6 +126,9 @@ begin
   --------------------------------------------------------------------------------------------------
 
   icache_1: entity work.icache
+    generic map(
+      CONFIG => CONFIG
+    )
     port map (
       i_clk => i_clk,
       i_rst => i_rst,
