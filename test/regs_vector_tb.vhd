@@ -55,6 +55,9 @@ architecture behavioral of regs_vector_tb is
   end function;
 begin
   regs_vector_0: entity work.regs_vector
+    generic map(
+      CONFIG => C_CORE_CONFIG_FULL
+    )
     port map (
       i_clk => s_clk,
       i_rst => s_rst,

@@ -22,6 +22,9 @@ use ieee.std_logic_1164.all;
 use work.config.all;
 
 entity icache is
+  generic(
+    CONFIG : T_CORE_CONFIG
+  );
   port(
     -- Control signals.
     i_clk : in std_logic;

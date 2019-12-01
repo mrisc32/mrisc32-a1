@@ -28,6 +28,9 @@ use work.config.all;
 use work.debug.all;
 
 entity pipeline is
+  generic(
+    CONFIG : T_CORE_CONFIG
+  );
   port(
     -- Control signals.
     i_clk : in std_logic;
@@ -234,6 +237,9 @@ begin
   -- IF1/IF2: Program counter & Instruction fetch.
 
   fetch_0: entity work.fetch
+    generic map (
+      CONFIG => CONFIG
+    )
     port map (
       -- Control signals.
       i_clk => i_clk,
@@ -268,6 +274,9 @@ begin
   -- ID: Instruction decode.
 
   decode_0: entity work.decode
+    generic map (
+      CONFIG => CONFIG
+    )
     port map (
       -- Control signals.
       i_clk => i_clk,
@@ -344,6 +353,9 @@ begin
   -- RF: Register fetch.
 
   register_fetch_0: entity work.register_fetch
+    generic map (
+      CONFIG => CONFIG
+    )
     port map (
       -- Control signals.
       i_clk => i_clk,
@@ -463,6 +475,9 @@ begin
   -- EX1/EX2/EX3/EX4: Execute.
 
   execute_0: entity work.execute
+    generic map (
+      CONFIG => CONFIG
+    )
     port map (
       i_clk => i_clk,
       i_rst => i_rst,

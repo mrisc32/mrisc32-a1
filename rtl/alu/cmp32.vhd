@@ -24,17 +24,20 @@ use work.types.all;
 use work.config.all;
 
 entity cmp32 is
+  generic(
+    CONFIG : T_CORE_CONFIG
+  );
   port(
-      i_src_a : in std_logic_vector(31 downto 0);
-      i_src_b : in std_logic_vector(31 downto 0);
-      i_op : in T_ALU_OP;
-      i_packed_mode : in T_PACKED_MODE;
-      o_set_res : out std_logic_vector(31 downto 0);
-      o_min_res : out std_logic_vector(31 downto 0);
-      o_max_res : out std_logic_vector(31 downto 0);
-      o_minu_res : out std_logic_vector(31 downto 0);
-      o_maxu_res : out std_logic_vector(31 downto 0)
-    );
+    i_src_a : in std_logic_vector(31 downto 0);
+    i_src_b : in std_logic_vector(31 downto 0);
+    i_op : in T_ALU_OP;
+    i_packed_mode : in T_PACKED_MODE;
+    o_set_res : out std_logic_vector(31 downto 0);
+    o_min_res : out std_logic_vector(31 downto 0);
+    o_max_res : out std_logic_vector(31 downto 0);
+    o_minu_res : out std_logic_vector(31 downto 0);
+    o_maxu_res : out std_logic_vector(31 downto 0)
+  );
 end cmp32;
 
 architecture rtl of cmp32 is
@@ -82,7 +85,7 @@ begin
   s_lt_32(0) <= '1' when signed(i_src_a) < signed(i_src_b) else '0';
   s_ltu_32(0) <= '1' when unsigned(i_src_a) < unsigned(i_src_b) else '0';
 
-  PACKED_GEN: if C_CPU_HAS_PO generate
+  PACKED_GEN: if CONFIG.HAS_PO generate
     -- 16-bit comparisons.
     s_eq_16(0) <= '1' when i_src_a(15 downto 0) = i_src_b(15 downto 0) else '0';
     s_eq_16(1) <= '1' when i_src_a(31 downto 16) = i_src_b(31 downto 16) else '0';

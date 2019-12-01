@@ -31,120 +31,123 @@ use work.config.all;
 use work.debug.all;
 
 entity register_fetch is
+  generic(
+    CONFIG : T_CORE_CONFIG
+  );
   port(
-      -- Control signals.
-      i_clk : in std_logic;
-      i_rst : in std_logic;
-      i_stall : in std_logic;
-      i_stall_id : in std_logic;  -- The stall signal to ID (we need it for the register files).
-      o_stall : out std_logic;
-      i_cancel : in std_logic;
-      i_bubble : in std_logic;
+    -- Control signals.
+    i_clk : in std_logic;
+    i_rst : in std_logic;
+    i_stall : in std_logic;
+    i_stall_id : in std_logic;  -- The stall signal to ID (we need it for the register files).
+    o_stall : out std_logic;
+    i_cancel : in std_logic;
+    i_bubble : in std_logic;
 
-      -- PC signal from IF (sync).
-      i_if_pc : in std_logic_vector(C_WORD_SIZE-1 downto 0);
+    -- PC signal from IF (sync).
+    i_if_pc : in std_logic_vector(C_WORD_SIZE-1 downto 0);
 
-      -- From the ID stage (async).
-      i_next_sreg_a_reg : in std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
-      i_next_sreg_b_reg : in std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
-      i_next_sreg_c_reg : in std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
-      i_next_vreg_a_reg : in std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
-      i_next_vreg_a_element : in std_logic_vector(C_LOG2_VEC_REG_ELEMENTS-1 downto 0);
-      i_next_vreg_b_reg : in std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
-      i_next_vreg_b_element : in std_logic_vector(C_LOG2_VEC_REG_ELEMENTS-1 downto 0);
+    -- From the ID stage (async).
+    i_next_sreg_a_reg : in std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
+    i_next_sreg_b_reg : in std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
+    i_next_sreg_c_reg : in std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
+    i_next_vreg_a_reg : in std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
+    i_next_vreg_a_element : in std_logic_vector(C_LOG2_VEC_REG_ELEMENTS-1 downto 0);
+    i_next_vreg_b_reg : in std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
+    i_next_vreg_b_element : in std_logic_vector(C_LOG2_VEC_REG_ELEMENTS-1 downto 0);
 
-      -- From the ID stage (sync).
-      i_branch_is_branch : in std_logic;
-      i_branch_is_unconditional : in std_logic;
-      i_branch_condition : in T_BRANCH_COND;
-      i_branch_offset : in std_logic_vector(20 downto 0);
+    -- From the ID stage (sync).
+    i_branch_is_branch : in std_logic;
+    i_branch_is_unconditional : in std_logic;
+    i_branch_condition : in T_BRANCH_COND;
+    i_branch_offset : in std_logic_vector(20 downto 0);
 
-      i_reg_a_required : in std_logic;
-      i_reg_b_required : in std_logic;
-      i_reg_c_required : in std_logic;
-      i_src_a_mode : in T_SRC_A_MODE;
-      i_src_b_mode : in T_SRC_B_MODE;
-      i_pc : in std_logic_vector(C_WORD_SIZE-1 downto 0);
-      i_imm : in std_logic_vector(C_WORD_SIZE-1 downto 0);
-      i_is_first_vector_op_cycle : in std_logic;
-      i_address_offset_is_stride : in std_logic;
-      i_src_reg_a : in T_SRC_REG;
-      i_src_reg_b : in T_SRC_REG;
-      i_src_reg_c : in T_SRC_REG;
-      i_dst_reg : in T_DST_REG;
-      i_packed_mode : in T_PACKED_MODE;
-      i_alu_op : in T_ALU_OP;
-      i_mem_op : in T_MEM_OP;
-      i_sau_op : in T_SAU_OP;
-      i_mul_op : in T_MUL_OP;
-      i_div_op : in T_DIV_OP;
-      i_fpu_op : in T_FPU_OP;
-      i_alu_en : in std_logic;
-      i_mem_en : in std_logic;
-      i_sau_en : in std_logic;
-      i_mul_en : in std_logic;
-      i_div_en : in std_logic;
-      i_fpu_en : in std_logic;
+    i_reg_a_required : in std_logic;
+    i_reg_b_required : in std_logic;
+    i_reg_c_required : in std_logic;
+    i_src_a_mode : in T_SRC_A_MODE;
+    i_src_b_mode : in T_SRC_B_MODE;
+    i_pc : in std_logic_vector(C_WORD_SIZE-1 downto 0);
+    i_imm : in std_logic_vector(C_WORD_SIZE-1 downto 0);
+    i_is_first_vector_op_cycle : in std_logic;
+    i_address_offset_is_stride : in std_logic;
+    i_src_reg_a : in T_SRC_REG;
+    i_src_reg_b : in T_SRC_REG;
+    i_src_reg_c : in T_SRC_REG;
+    i_dst_reg : in T_DST_REG;
+    i_packed_mode : in T_PACKED_MODE;
+    i_alu_op : in T_ALU_OP;
+    i_mem_op : in T_MEM_OP;
+    i_sau_op : in T_SAU_OP;
+    i_mul_op : in T_MUL_OP;
+    i_div_op : in T_DIV_OP;
+    i_fpu_op : in T_FPU_OP;
+    i_alu_en : in std_logic;
+    i_mem_en : in std_logic;
+    i_sau_en : in std_logic;
+    i_mul_en : in std_logic;
+    i_div_en : in std_logic;
+    i_fpu_en : in std_logic;
 
-      -- Information to the operand forwarding logic (async).
-      o_src_reg_a : out T_SRC_REG;
-      o_reg_a_required : out std_logic;
-      o_src_reg_b : out T_SRC_REG;
-      o_reg_b_required : out std_logic;
-      o_src_reg_c : out T_SRC_REG;
-      o_reg_c_required : out std_logic;
+    -- Information to the operand forwarding logic (async).
+    o_src_reg_a : out T_SRC_REG;
+    o_reg_a_required : out std_logic;
+    o_src_reg_b : out T_SRC_REG;
+    o_reg_b_required : out std_logic;
+    o_src_reg_c : out T_SRC_REG;
+    o_reg_c_required : out std_logic;
 
-      -- Operand forwarding to EX1 input (async).
-      i_reg_a_fwd_value : in std_logic_vector(C_WORD_SIZE-1 downto 0);
-      i_reg_a_fwd_use_value : in std_logic;
-      i_reg_a_fwd_value_ready : in std_logic;
-      i_reg_b_fwd_value : in std_logic_vector(C_WORD_SIZE-1 downto 0);
-      i_reg_b_fwd_use_value : in std_logic;
-      i_reg_b_fwd_value_ready : in std_logic;
-      i_reg_c_fwd_value : in std_logic_vector(C_WORD_SIZE-1 downto 0);
-      i_reg_c_fwd_use_value : in std_logic;
-      i_reg_c_fwd_value_ready : in std_logic;
+    -- Operand forwarding to EX1 input (async).
+    i_reg_a_fwd_value : in std_logic_vector(C_WORD_SIZE-1 downto 0);
+    i_reg_a_fwd_use_value : in std_logic;
+    i_reg_a_fwd_value_ready : in std_logic;
+    i_reg_b_fwd_value : in std_logic_vector(C_WORD_SIZE-1 downto 0);
+    i_reg_b_fwd_use_value : in std_logic;
+    i_reg_b_fwd_value_ready : in std_logic;
+    i_reg_c_fwd_value : in std_logic_vector(C_WORD_SIZE-1 downto 0);
+    i_reg_c_fwd_use_value : in std_logic;
+    i_reg_c_fwd_value_ready : in std_logic;
 
-      -- WB data from the EX3 stage (async).
-      i_wb_data_w : in std_logic_vector(C_WORD_SIZE-1 downto 0);
-      i_wb_we : in std_logic;
-      i_wb_sel_w : in std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
-      i_wb_element_w : in std_logic_vector(C_LOG2_VEC_REG_ELEMENTS-1 downto 0);
-      i_wb_is_vector : in std_logic;
+    -- WB data from the EX3 stage (async).
+    i_wb_data_w : in std_logic_vector(C_WORD_SIZE-1 downto 0);
+    i_wb_we : in std_logic;
+    i_wb_sel_w : in std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
+    i_wb_element_w : in std_logic_vector(C_LOG2_VEC_REG_ELEMENTS-1 downto 0);
+    i_wb_is_vector : in std_logic;
 
-      -- Branch results to the EX1 stage (sync).
-      o_branch_is_branch : out std_logic;
-      o_branch_is_unconditional : out std_logic;
-      o_branch_condition : out T_BRANCH_COND;
-      o_branch_offset : out std_logic_vector(20 downto 0);
-      o_branch_base_expected : out std_logic_vector(C_WORD_SIZE-1 downto 0);
-      o_branch_pc_plus_4 : out std_logic_vector(C_WORD_SIZE-1 downto 0);
+    -- Branch results to the EX1 stage (sync).
+    o_branch_is_branch : out std_logic;
+    o_branch_is_unconditional : out std_logic;
+    o_branch_condition : out T_BRANCH_COND;
+    o_branch_offset : out std_logic_vector(20 downto 0);
+    o_branch_base_expected : out std_logic_vector(C_WORD_SIZE-1 downto 0);
+    o_branch_pc_plus_4 : out std_logic_vector(C_WORD_SIZE-1 downto 0);
 
-      -- To the EX1 stage (sync).
-      o_pc : out std_logic_vector(C_WORD_SIZE-1 downto 0);
-      o_src_a : out std_logic_vector(C_WORD_SIZE-1 downto 0);
-      o_src_b : out std_logic_vector(C_WORD_SIZE-1 downto 0);
-      o_src_c : out std_logic_vector(C_WORD_SIZE-1 downto 0);
-      o_is_first_vector_op_cycle : out std_logic;
-      o_address_offset_is_stride : out std_logic;
-      o_dst_reg : out T_DST_REG;
-      o_packed_mode : out T_PACKED_MODE;
-      o_alu_op : out T_ALU_OP;
-      o_mem_op : out T_MEM_OP;
-      o_sau_op : out T_SAU_OP;
-      o_mul_op : out T_MUL_OP;
-      o_div_op : out T_DIV_OP;
-      o_fpu_op : out T_FPU_OP;
-      o_alu_en : out std_logic;
-      o_mem_en : out std_logic;
-      o_sau_en : out std_logic;
-      o_mul_en : out std_logic;
-      o_div_en : out std_logic;
-      o_fpu_en : out std_logic;
+    -- To the EX1 stage (sync).
+    o_pc : out std_logic_vector(C_WORD_SIZE-1 downto 0);
+    o_src_a : out std_logic_vector(C_WORD_SIZE-1 downto 0);
+    o_src_b : out std_logic_vector(C_WORD_SIZE-1 downto 0);
+    o_src_c : out std_logic_vector(C_WORD_SIZE-1 downto 0);
+    o_is_first_vector_op_cycle : out std_logic;
+    o_address_offset_is_stride : out std_logic;
+    o_dst_reg : out T_DST_REG;
+    o_packed_mode : out T_PACKED_MODE;
+    o_alu_op : out T_ALU_OP;
+    o_mem_op : out T_MEM_OP;
+    o_sau_op : out T_SAU_OP;
+    o_mul_op : out T_MUL_OP;
+    o_div_op : out T_DIV_OP;
+    o_fpu_op : out T_FPU_OP;
+    o_alu_en : out std_logic;
+    o_mem_en : out std_logic;
+    o_sau_en : out std_logic;
+    o_mul_en : out std_logic;
+    o_div_en : out std_logic;
+    o_fpu_en : out std_logic;
 
-      -- Debug trace interface.
-      o_debug_trace : out T_DEBUG_TRACE
-    );
+    -- Debug trace interface.
+    o_debug_trace : out T_DEBUG_TRACE
+  );
 end register_fetch;
 
 architecture rtl of register_fetch is
@@ -241,9 +244,12 @@ begin
     );
 
   -- Instantiate the vector register file.
-  VREG_GEN: if C_CPU_HAS_VEC generate
+  VREG_GEN: if CONFIG.HAS_VEC generate
     s_vector_we <= i_wb_we and i_wb_is_vector;
     regs_vector_1: entity work.regs_vector
+      generic map (
+        CONFIG => CONFIG
+      )
       port map (
         i_clk => i_clk,
         i_rst => i_rst,

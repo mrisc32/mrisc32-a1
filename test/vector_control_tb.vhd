@@ -54,6 +54,9 @@ architecture behavioral of vector_control_tb is
   end function;
 begin
   vector_control_0: entity work.vector_control
+    generic map(
+      CONFIG => C_CORE_CONFIG_FULL
+    )
     port map (
       i_clk => s_clk,
       i_rst => s_rst,

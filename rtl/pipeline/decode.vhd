@@ -23,81 +23,84 @@
 
 library ieee;
 use ieee.std_logic_1164.all;
-use work.types.all;
 use work.config.all;
+use work.types.all;
 
 entity decode is
+  generic(
+    CONFIG : T_CORE_CONFIG
+  );
   port(
-      -- Control signals.
-      i_clk : in std_logic;
-      i_rst : in std_logic;
-      i_stall : in std_logic;
-      o_stall : out std_logic;
-      i_cancel : in std_logic;
-      o_bubble : out std_logic;  -- Only informational: The decode stage will generate NOP:s for
-                                 -- every bubble, so this signal is not strictly necessary.
+    -- Control signals.
+    i_clk : in std_logic;
+    i_rst : in std_logic;
+    i_stall : in std_logic;
+    o_stall : out std_logic;
+    i_cancel : in std_logic;
+    o_bubble : out std_logic;  -- Only informational: The decode stage will generate NOP:s for
+                               -- every bubble, so this signal is not strictly necessary.
 
-      -- From the IF stage (sync).
-      i_pc : in std_logic_vector(C_WORD_SIZE-1 downto 0);
-      i_instr : in std_logic_vector(C_WORD_SIZE-1 downto 0);
-      i_bubble : in std_logic;  -- 1 if IF could not provide a new instruction.
+    -- From the IF stage (sync).
+    i_pc : in std_logic_vector(C_WORD_SIZE-1 downto 0);
+    i_instr : in std_logic_vector(C_WORD_SIZE-1 downto 0);
+    i_bubble : in std_logic;  -- 1 if IF could not provide a new instruction.
 
-      -- Information to the operand forwarding logic (async).
-      o_vl_requested : out std_logic;
+    -- Information to the operand forwarding logic (async).
+    o_vl_requested : out std_logic;
 
-      -- Operand forwarding to the vector control unit.
-      i_vl_fwd_value : in std_logic_vector(C_WORD_SIZE-1 downto 0);
-      i_vl_fwd_use_value : in std_logic;
-      i_vl_fwd_value_ready : in std_logic;
+    -- Operand forwarding to the vector control unit.
+    i_vl_fwd_value : in std_logic_vector(C_WORD_SIZE-1 downto 0);
+    i_vl_fwd_use_value : in std_logic;
+    i_vl_fwd_value_ready : in std_logic;
 
-      -- WB data from the EX3 stage (async).
-      i_wb_data_w : in std_logic_vector(C_WORD_SIZE-1 downto 0);
-      i_wb_we : in std_logic;
-      i_wb_sel_w : in std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
-      i_wb_is_vector : in std_logic;
+    -- WB data from the EX3 stage (async).
+    i_wb_data_w : in std_logic_vector(C_WORD_SIZE-1 downto 0);
+    i_wb_we : in std_logic;
+    i_wb_sel_w : in std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
+    i_wb_is_vector : in std_logic;
 
-      -- To the RF stage (async).
-      o_next_sreg_a_reg : out std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
-      o_next_sreg_b_reg : out std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
-      o_next_sreg_c_reg : out std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
-      o_next_vreg_a_reg : out std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
-      o_next_vreg_a_element : out std_logic_vector(C_LOG2_VEC_REG_ELEMENTS-1 downto 0);
-      o_next_vreg_b_reg : out std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
-      o_next_vreg_b_element : out std_logic_vector(C_LOG2_VEC_REG_ELEMENTS-1 downto 0);
+    -- To the RF stage (async).
+    o_next_sreg_a_reg : out std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
+    o_next_sreg_b_reg : out std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
+    o_next_sreg_c_reg : out std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
+    o_next_vreg_a_reg : out std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
+    o_next_vreg_a_element : out std_logic_vector(C_LOG2_VEC_REG_ELEMENTS-1 downto 0);
+    o_next_vreg_b_reg : out std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
+    o_next_vreg_b_element : out std_logic_vector(C_LOG2_VEC_REG_ELEMENTS-1 downto 0);
 
-      -- To the RF stage (sync).
-      o_branch_is_branch : out std_logic;
-      o_branch_is_unconditional : out std_logic;
-      o_branch_condition : out T_BRANCH_COND;
-      o_branch_offset : out std_logic_vector(20 downto 0);
+    -- To the RF stage (sync).
+    o_branch_is_branch : out std_logic;
+    o_branch_is_unconditional : out std_logic;
+    o_branch_condition : out T_BRANCH_COND;
+    o_branch_offset : out std_logic_vector(20 downto 0);
 
-      o_reg_a_required : out std_logic;
-      o_reg_b_required : out std_logic;
-      o_reg_c_required : out std_logic;
-      o_src_a_mode : out T_SRC_A_MODE;
-      o_src_b_mode : out T_SRC_B_MODE;
-      o_pc : out std_logic_vector(C_WORD_SIZE-1 downto 0);
-      o_imm : out std_logic_vector(C_WORD_SIZE-1 downto 0);
-      o_is_first_vector_op_cycle : out std_logic;
-      o_address_offset_is_stride : out std_logic;
-      o_src_reg_a : out T_SRC_REG;
-      o_src_reg_b : out T_SRC_REG;
-      o_src_reg_c : out T_SRC_REG;
-      o_dst_reg : out T_DST_REG;
-      o_packed_mode : out T_PACKED_MODE;
-      o_alu_op : out T_ALU_OP;
-      o_mem_op : out T_MEM_OP;
-      o_sau_op : out T_SAU_OP;
-      o_mul_op : out T_MUL_OP;
-      o_div_op : out T_DIV_OP;
-      o_fpu_op : out T_FPU_OP;
-      o_alu_en : out std_logic;
-      o_mem_en : out std_logic;
-      o_sau_en : out std_logic;
-      o_mul_en : out std_logic;
-      o_div_en : out std_logic;
-      o_fpu_en : out std_logic
-    );
+    o_reg_a_required : out std_logic;
+    o_reg_b_required : out std_logic;
+    o_reg_c_required : out std_logic;
+    o_src_a_mode : out T_SRC_A_MODE;
+    o_src_b_mode : out T_SRC_B_MODE;
+    o_pc : out std_logic_vector(C_WORD_SIZE-1 downto 0);
+    o_imm : out std_logic_vector(C_WORD_SIZE-1 downto 0);
+    o_is_first_vector_op_cycle : out std_logic;
+    o_address_offset_is_stride : out std_logic;
+    o_src_reg_a : out T_SRC_REG;
+    o_src_reg_b : out T_SRC_REG;
+    o_src_reg_c : out T_SRC_REG;
+    o_dst_reg : out T_DST_REG;
+    o_packed_mode : out T_PACKED_MODE;
+    o_alu_op : out T_ALU_OP;
+    o_mem_op : out T_MEM_OP;
+    o_sau_op : out T_SAU_OP;
+    o_mul_op : out T_MUL_OP;
+    o_div_op : out T_DIV_OP;
+    o_fpu_op : out T_FPU_OP;
+    o_alu_en : out std_logic;
+    o_mem_en : out std_logic;
+    o_sau_en : out std_logic;
+    o_mul_en : out std_logic;
+    o_div_en : out std_logic;
+    o_fpu_en : out std_logic
+  );
 end decode;
 
 architecture rtl of decode is
@@ -301,11 +304,14 @@ begin
   s_vl_data_or_fwd <= i_vl_fwd_value when i_vl_fwd_use_value = '1' else s_vl_data;
 
   -- Instantiate the vector control unit.
-  VCTRL_GEN: if C_CPU_HAS_VEC generate
+  VCTRL_GEN: if CONFIG.HAS_VEC generate
     -- Stall the vector control unit?
     s_stall_vector_control <= i_stall or (i_vl_fwd_use_value and not i_vl_fwd_value_ready);
 
     vector_control_1: entity work.vector_control
+      generic map (
+        CONFIG => CONFIG
+      )
       port map (
         i_clk => i_clk,
         i_rst => i_rst,

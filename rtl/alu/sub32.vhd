@@ -24,12 +24,15 @@ use work.types.all;
 use work.config.all;
 
 entity sub32 is
+  generic(
+    CONFIG : T_CORE_CONFIG
+  );
   port(
-      i_src_a       : in  std_logic_vector(31 downto 0);
-      i_src_b       : in  std_logic_vector(31 downto 0);
-      i_packed_mode : in  T_PACKED_MODE;
-      o_result      : out std_logic_vector(31 downto 0)
-    );
+    i_src_a       : in  std_logic_vector(31 downto 0);
+    i_src_b       : in  std_logic_vector(31 downto 0);
+    i_packed_mode : in  T_PACKED_MODE;
+    o_result      : out std_logic_vector(31 downto 0)
+  );
 end sub32;
 
 architecture rtl of sub32 is
@@ -46,7 +49,7 @@ begin
   -- 32-bit subtracion.
   s_res_32 <= unsigned(i_src_b) - unsigned(i_src_a);
 
-  PACKED_GEN: if C_CPU_HAS_PO generate
+  PACKED_GEN: if CONFIG.HAS_PO generate
     -- 2x 16-bit subtracion.
     s_res_16_0 <= unsigned(i_src_b(15 downto 0)) - unsigned(i_src_a(15 downto 0));
     s_res_16_1 <= unsigned(i_src_b(31 downto 16)) - unsigned(i_src_a(31 downto 16));

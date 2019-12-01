@@ -35,6 +35,9 @@ architecture behav of alu_tb is
 begin
   --  Component instantiation.
   alu_0: entity work.alu
+    generic map(
+      CONFIG => C_CORE_CONFIG_FULL
+    )
     port map (
       i_op => s_op,
       i_src_a => s_src_a,
