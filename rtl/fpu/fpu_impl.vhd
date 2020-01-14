@@ -180,7 +180,7 @@ begin
 
 
   --------------------------------------------------------------------------------------------------
-  -- Decompose source operands (mostly for multi-cycle ops).
+  -- Decompose source operands.
   --------------------------------------------------------------------------------------------------
 
   DecomposeA: entity work.float_decompose
@@ -222,6 +222,8 @@ begin
     port map (
       i_src_a => i_src_a,
       i_src_b => i_src_b,
+      i_props_a => s_props_a,
+      i_props_b => s_props_b,
       o_magn_lt => s_compare_magn_lt,
       o_eq => s_compare_eq,
       o_ne => s_compare_ne,
