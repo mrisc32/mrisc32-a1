@@ -100,6 +100,11 @@ begin
       (X"00000124", X"80000123", '1', '0', '0', '1'),
       (X"80000124", X"00000123", '1', '0', '0', '1'),
 
+      -- Infinite numbers.
+      (X"7f800000", X"7f800000", '1', '0', '0', '1'),
+      (X"7f800000", X"ff800000", '0', '1', '0', '0'),
+      (X"ff800000", X"7f800000", '0', '1', '1', '1'),
+
       -- Positive numbers.
       (X"12345678", X"12345678", '1', '0', '0', '1'),
       (X"12345678", X"12345679", '0', '1', '1', '1'),
@@ -107,7 +112,9 @@ begin
 
       -- Different signs.
       (X"92345678", X"12345678", '0', '1', '1', '1'),
+      (X"92345679", X"12345678", '0', '1', '1', '1'),
       (X"12345678", X"92345678", '0', '1', '0', '0'),
+      (X"12345679", X"92345678", '0', '1', '0', '0'),
 
       -- Negative numbers.
       (X"92345678", X"92345678", '1', '0', '0', '1'),
@@ -137,7 +144,7 @@ begin
         report "Incorrect ne value:" & lf &
                "  src_a=" & to_string(s_src_a) & lf &
                "  src_b=" & to_string(s_src_b) & lf &
-               "  actual:   " & to_string(s_eq) & lf &
+               "  actual:   " & to_string(s_ne) & lf &
                "  expected: " & to_string(patterns(i).ne)
             severity error;
 
@@ -145,7 +152,7 @@ begin
         report "Incorrect lt value:" & lf &
                "  src_a=" & to_string(s_src_a) & lf &
                "  src_b=" & to_string(s_src_b) & lf &
-               "  actual:   " & to_string(s_eq) & lf &
+               "  actual:   " & to_string(s_lt) & lf &
                "  expected: " & to_string(patterns(i).lt)
             severity error;
 
@@ -153,7 +160,7 @@ begin
         report "Incorrect le value:" & lf &
                "  src_a=" & to_string(s_src_a) & lf &
                "  src_b=" & to_string(s_src_b) & lf &
-               "  actual:   " & to_string(s_eq) & lf &
+               "  actual:   " & to_string(s_le) & lf &
                "  expected: " & to_string(patterns(i).le)
             severity error;
 
