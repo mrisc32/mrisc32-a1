@@ -27,11 +27,37 @@ end float_compare_tb;
 architecture behavioral of float_compare_tb is
   signal s_src_a : std_logic_vector(31 downto 0);
   signal s_src_b : std_logic_vector(31 downto 0);
+  signal s_props_a : T_FLOAT_PROPS;
+  signal s_props_b : T_FLOAT_PROPS;
   signal s_eq : std_logic;
   signal s_ne : std_logic;
   signal s_lt : std_logic;
   signal s_le : std_logic;
 begin
+  -- We need float_decompose to get the floating-point properties.
+  float_decompose_a: entity work.float_decompose
+    generic map (
+      WIDTH => F32_WIDTH,
+      EXP_BITS => F32_EXP_BITS,
+      FRACT_BITS => F32_FRACT_BITS
+    )
+    port map (
+      i_src => s_src_a,
+      o_props => s_props_a
+    );
+
+  float_decompose_b: entity work.float_decompose
+    generic map (
+      WIDTH => F32_WIDTH,
+      EXP_BITS => F32_EXP_BITS,
+      FRACT_BITS => F32_FRACT_BITS
+    )
+    port map (
+      i_src => s_src_b,
+      o_props => s_props_b
+    );
+
+  -- Instantiate the float_compare entity.
   float_compare_0: entity work.float_compare
     generic map (
       WIDTH => F32_WIDTH
@@ -39,6 +65,8 @@ begin
     port map (
       i_src_a => s_src_a,
       i_src_b => s_src_b,
+      i_props_a => s_props_a,
+      i_props_b => s_props_b,
       o_eq => s_eq,
       o_ne => s_ne,
       o_lt => s_lt,
@@ -60,16 +88,23 @@ begin
     end record;
     type pattern_array is array (natural range <>) of pattern_type;
     constant patterns : pattern_array := (
-        (X"00000000", X"00000000", '1', '0', '0', '1'),
-        (X"12345678", X"12345678", '1', '0', '0', '1'),
-        (X"12345678", X"12345679", '0', '1', '1', '1'),
-        (X"12345679", X"12345678", '0', '1', '0', '0'),
-        (X"92345678", X"12345678", '0', '1', '1', '1'),
-        (X"12345678", X"92345678", '0', '1', '0', '0'),
-        (X"92345678", X"92345678", '1', '0', '0', '1'),
-        (X"92345678", X"92345679", '0', '1', '0', '0'),
-        (X"92345679", X"92345678", '0', '1', '1', '1')
-      );
+      -- Zero.
+      (X"00000000", X"00000000", '1', '0', '0', '1'),
+
+      -- Positive numbers.
+      (X"12345678", X"12345678", '1', '0', '0', '1'),
+      (X"12345678", X"12345679", '0', '1', '1', '1'),
+      (X"12345679", X"12345678", '0', '1', '0', '0'),
+
+      -- Different signs.
+      (X"92345678", X"12345678", '0', '1', '1', '1'),
+      (X"12345678", X"92345678", '0', '1', '0', '0'),
+
+      -- Negative numbers.
+      (X"92345678", X"92345678", '1', '0', '0', '1'),
+      (X"92345678", X"92345679", '0', '1', '0', '0'),
+      (X"92345679", X"92345678", '0', '1', '1', '1')
+    );
   begin
     -- Test all the patterns in the pattern array.
     for i in patterns'range loop

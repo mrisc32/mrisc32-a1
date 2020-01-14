@@ -20,6 +20,7 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+use work.types.all;
 
 ----------------------------------------------------------------------------------------------------
 -- Compare floating point numbers.
@@ -28,18 +29,21 @@ use ieee.numeric_std.all;
 
 entity float_compare is
   generic(
-      WIDTH : positive := 32
-    );
+    WIDTH : positive := 32
+  );
   port(
-      i_src_a : in std_logic_vector(WIDTH-1 downto 0);
-      i_src_b : in std_logic_vector(WIDTH-1 downto 0);
+    i_src_a : in std_logic_vector(WIDTH-1 downto 0);
+    i_src_b : in std_logic_vector(WIDTH-1 downto 0);
 
-      o_magn_lt : out std_logic;
-      o_eq : out std_logic;
-      o_ne : out std_logic;
-      o_lt : out std_logic;
-      o_le : out std_logic
-    );
+    i_props_a : T_FLOAT_PROPS;
+    i_props_b : T_FLOAT_PROPS;
+
+    o_magn_lt : out std_logic;
+    o_eq : out std_logic;
+    o_ne : out std_logic;
+    o_lt : out std_logic;
+    o_le : out std_logic
+  );
 end float_compare;
 
 architecture rtl of float_compare is
