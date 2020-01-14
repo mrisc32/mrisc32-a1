@@ -47,34 +47,35 @@ entity float_compare is
 end float_compare;
 
 architecture rtl of float_compare is
-  signal s_sign_a : std_logic;
-  signal s_sign_b : std_logic;
   signal s_magn_a : unsigned(WIDTH-2 downto 0);
   signal s_magn_b : unsigned(WIDTH-2 downto 0);
-
+  signal s_both_zero : std_logic;
   signal s_magn_eq : std_logic;
   signal s_magn_lt : std_logic;
 
   signal s_eq : std_logic;
   signal s_lt : std_logic;
 begin
-  -- Decompose.
-  s_sign_a <= i_src_a(WIDTH-1);
-  s_sign_b <= i_src_b(WIDTH-1);
+  -- Extract the raw magnitudes.
   s_magn_a <= unsigned(i_src_a(WIDTH-2 downto 0));
   s_magn_b <= unsigned(i_src_b(WIDTH-2 downto 0));
+
+  -- According to IEEE 754, -0 == +0, which is a special case.
+  s_both_zero <= i_props_a.is_zero and i_props_b.is_zero;
 
   -- Compare exponents and magnitudes.
   s_magn_eq <= '1' when s_magn_a = s_magn_b else '0';
   s_magn_lt <= '1' when s_magn_a < s_magn_b else '0';
 
   -- Equal?
-  s_eq <= (not (s_sign_a xor s_sign_b)) and s_magn_eq;
+  s_eq <= (s_magn_eq and (not (i_props_a.is_neg xor i_props_b.is_neg))) or
+          s_both_zero;
 
   -- Less than?
-  s_lt <= s_magn_lt when (s_sign_a = '0' and s_sign_b = '0') else
-          (not (s_eq or s_magn_lt)) when (s_sign_a = '1' and s_sign_b = '1') else
-          '1' when (s_sign_a = '1' and s_sign_b = '0') else
+  s_lt <= '0' when s_both_zero = '1' else
+          s_magn_lt when (i_props_a.is_neg = '0' and i_props_b.is_neg = '0') else
+          (not (s_magn_lt or s_eq)) when (i_props_a.is_neg = '1' and i_props_b.is_neg = '1') else
+          '1' when (i_props_a.is_neg = '1' and i_props_b.is_neg = '0') else
           '0';
 
   -- Outputs.
