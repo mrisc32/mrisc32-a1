@@ -24,7 +24,6 @@ use work.types.all;
 
 ----------------------------------------------------------------------------------------------------
 -- Compare floating point numbers.
--- TODO(m): Handle NaNs.
 ----------------------------------------------------------------------------------------------------
 
 entity float_compare is
@@ -50,6 +49,7 @@ architecture rtl of float_compare is
   signal s_magn_a : unsigned(WIDTH-2 downto 0);
   signal s_magn_b : unsigned(WIDTH-2 downto 0);
   signal s_both_zero : std_logic;
+  signal s_any_nan : std_logic;
   signal s_magn_eq : std_logic;
   signal s_magn_lt : std_logic;
 
@@ -62,6 +62,11 @@ begin
 
   -- According to IEEE 754, -0 == +0, which is a special case.
   s_both_zero <= i_props_a.is_zero and i_props_b.is_zero;
+
+  -- According to IEEE 754, we need special treatment of NaN:
+  --  - NaN != x for any x (including NaN).
+  --  - NaN is never less than or greater than any x (including NaN).
+  s_any_nan <= i_props_a.is_nan or i_props_b.is_nan;
 
   -- Compare exponents and magnitudes.
   s_magn_eq <= '1' when s_magn_a = s_magn_b else '0';
@@ -80,8 +85,8 @@ begin
 
   -- Outputs.
   o_magn_lt <= s_magn_lt;
-  o_eq <= s_eq;
-  o_ne <= not s_eq;
-  o_lt <= s_lt;
-  o_le <= s_eq or s_lt;
+  o_eq <= s_eq and not s_any_nan;
+  o_ne <= (not s_eq) or s_any_nan;
+  o_lt <= s_lt and not s_any_nan;
+  o_le <= (s_eq or s_lt) and not s_any_nan;
 end rtl;
