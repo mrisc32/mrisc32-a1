@@ -44,7 +44,6 @@ architecture rtl of alu is
   signal s_and_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_bic_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_xor_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
-  signal s_bitwise_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_set_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_min_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_max_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
@@ -52,7 +51,8 @@ architecture rtl of alu is
   signal s_maxu_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_shuf_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_rev_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
-  signal s_pack_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
+  signal s_packb_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
+  signal s_packh_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_ldli_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_ldhi_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_ldhio_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
@@ -62,10 +62,6 @@ architecture rtl of alu is
   -- Signals for the adder.
   signal s_add_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_sub_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
-
-  -- Signals for packb/packh.
-  signal s_packb_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
-  signal s_packh_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
 
   -- Signals for the shifter.
   signal s_shift_is_right : std_logic;
@@ -107,17 +103,6 @@ begin
   -- C_ALU_XOR
   s_xor_res <= i_src_a xor i_src_b;
 
-  -- We mux the bitwise operations together first (rather than adding them all to AluMux) since
-  -- they have a very low complexity, thus giving us a better balance with the rest of the ALU.
-  BitwiseMux: with i_op select
-    s_bitwise_res <=
-        s_or_res  when C_ALU_OR,
-        s_nor_res when C_ALU_NOR,
-        s_and_res when C_ALU_AND,
-        s_bic_res when C_ALU_BIC,
-        s_xor_res when C_ALU_XOR,
-        (others => '-') when others;
-
 
   ------------------------------------------------------------------------------------------------
   -- Bit, byte and word shuffling
@@ -145,7 +130,6 @@ begin
   -- C_ALU_PACKB, C_ALU_PACKH
   s_packb_res <= i_src_a(23 downto 16) & i_src_a(7 downto 0) & i_src_b(23 downto 16) & i_src_b(7 downto 0);
   s_packh_res <= i_src_a(15 downto 0) & i_src_b(15 downto 0);
-  s_pack_res <= s_packb_res when i_op(0) = '0' else s_packh_res;
 
   -- C_ALU_LDLI, C_ALU_LDHI, C_ALU_LDHIO
   s_ldli_res <= i_src_b;
@@ -257,7 +241,11 @@ begin
   AluMux: with i_op select
     o_result <=
         s_cpuid_res when C_ALU_CPUID,
-        s_bitwise_res when C_ALU_OR | C_ALU_NOR | C_ALU_AND | C_ALU_BIC | C_ALU_XOR,
+        s_or_res  when C_ALU_OR,
+        s_nor_res when C_ALU_NOR,
+        s_and_res when C_ALU_AND,
+        s_bic_res when C_ALU_BIC,
+        s_xor_res when C_ALU_XOR,
         s_add_res when C_ALU_ADD,
         s_sub_res when C_ALU_SUB,
         s_set_res when C_ALU_SEQ | C_ALU_SNE | C_ALU_SLT | C_ALU_SLTU | C_ALU_SLE | C_ALU_SLEU,
@@ -269,7 +257,8 @@ begin
         s_shuf_res when C_ALU_SHUF,
         s_clz_res when C_ALU_CLZ,
         s_rev_res when C_ALU_REV,
-        s_pack_res when C_ALU_PACKB | C_ALU_PACKH,
+        s_packb_res when C_ALU_PACKB,
+        s_packh_res when C_ALU_PACKH,
         s_ldli_res when C_ALU_LDLI,
         s_ldhi_res when C_ALU_LDHI,
         s_ldhio_res when C_ALU_LDHIO,
