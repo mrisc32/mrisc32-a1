@@ -153,7 +153,7 @@ architecture rtl of decode is
   signal s_is_div_op : std_logic;
   signal s_is_fpu_op : std_logic;
 
-  signal s_is_ldi : std_logic;
+  signal s_is_ldli : std_logic;
   signal s_is_ldhi : std_logic;
   signal s_is_ldhio : std_logic;
   signal s_is_addpchi : std_logic;
@@ -239,7 +239,7 @@ begin
   s_is_mem_store <= s_is_mem_op and s_mem_op(3);
 
   -- Is this an immediate load?
-  s_is_ldi     <= '1' when s_op_high = 6X"3a" else '0';
+  s_is_ldli    <= '1' when s_op_high = 6X"3a" else '0';
   s_is_ldhi    <= '1' when s_op_high = 6X"3b" else '0';
   s_is_ldhio   <= '1' when s_op_high = 6X"3c" else '0';
   s_is_addpchi <= '1' when s_op_high = 6X"3d" else '0';
@@ -411,8 +411,8 @@ begin
       -- Use the ALU to calculate the return address of linking branches.
       C_ALU_ADD when s_is_link_branch = '1' else
 
-      -- LDI has a special ALU op.
-      C_ALU_LDI when s_is_ldi = '1' else
+      -- LDLI has a special ALU op.
+      C_ALU_LDLI when s_is_ldli = '1' else
 
       -- LDHI has a special ALU op.
       C_ALU_LDHI when s_is_ldhi = '1' else

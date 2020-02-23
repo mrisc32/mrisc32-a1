@@ -86,7 +86,7 @@ package types is
 
   constant C_ALU_CPUID : T_ALU_OP := "000000";
 
-  constant C_ALU_LDI   : T_ALU_OP := "000001";
+  constant C_ALU_LDLI  : T_ALU_OP := "000001";
   constant C_ALU_LDHI  : T_ALU_OP := "000010";
   constant C_ALU_LDHIO : T_ALU_OP := "000011";
   constant C_ALU_ADDHI : T_ALU_OP := "000100";
