@@ -186,6 +186,8 @@ architecture rtl of register_fetch is
   signal s_missing_fwd_operand : std_logic;
 
   -- Signals for handling discarding of the current operation (i.e. bubble).
+  signal s_latched_cancel : std_logic;
+  signal s_cancel : std_logic;
   signal s_bubble : std_logic;
   signal s_dst_reg_masked : T_DST_REG;
   signal s_alu_op_masked : T_ALU_OP;
@@ -199,6 +201,23 @@ architecture rtl of register_fetch is
   signal s_branch_is_branch_masked : std_logic;
   signal s_branch_is_unconditional_masked : std_logic;
 begin
+  -- Should the current instruction be canceled?
+  process(i_clk, i_rst)
+  begin
+    if i_rst = '1' then
+      s_latched_cancel <= '0';
+    elsif rising_edge(i_clk) then
+      if i_cancel = '1' and i_stall = '1' then
+        s_latched_cancel <= '1';
+      elsif i_stall = '0' then
+        s_latched_cancel <= '0';
+      end if;
+    end if;
+  end process;
+
+  s_cancel <= i_cancel or s_latched_cancel;
+
+
   --------------------------------------------------------------------------------------------------
   -- Debug trace interface.
   --------------------------------------------------------------------------------------------------
@@ -331,13 +350,13 @@ begin
   s_src_c <= i_reg_c_fwd_value when i_reg_c_fwd_use_value = '1' else s_src_c_data;
 
   -- Are we missing any fwd operation that has not yet been produced by the pipeline?
-  s_missing_fwd_operand <=
-      (i_reg_a_required and (i_reg_a_fwd_use_value and not i_reg_a_fwd_value_ready)) or
-      (i_reg_b_required and (i_reg_b_fwd_use_value and not i_reg_b_fwd_value_ready)) or
-      (i_reg_c_required and (i_reg_c_fwd_use_value and not i_reg_c_fwd_value_ready));
+  s_missing_fwd_operand <= (not s_cancel) and
+      ((i_reg_a_required and (i_reg_a_fwd_use_value and not i_reg_a_fwd_value_ready)) or
+       (i_reg_b_required and (i_reg_b_fwd_use_value and not i_reg_b_fwd_value_ready)) or
+       (i_reg_c_required and (i_reg_c_fwd_use_value and not i_reg_c_fwd_value_ready)));
 
   -- Should we discard the operation (i.e. send a bubble down the pipeline)?
-  s_bubble <= i_cancel or s_missing_fwd_operand;
+  s_bubble <= i_bubble or s_cancel or s_missing_fwd_operand;
   s_dst_reg_masked.is_target <= i_dst_reg.is_target when s_bubble = '0' else '0';
   s_dst_reg_masked.reg <= i_dst_reg.reg when s_bubble = '0' else (others => '0');
   s_dst_reg_masked.element <= i_dst_reg.element when s_bubble = '0' else (others => '0');

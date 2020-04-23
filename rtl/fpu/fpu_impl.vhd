@@ -95,6 +95,7 @@ architecture rtl of fpu_impl is
   signal s_itof_exponent : std_logic_vector(EXP_BITS-1 downto 0);
   signal s_itof_significand : std_logic_vector(SIGNIFICAND_BITS-1 downto 0);
   signal s_itof_result_ready : std_logic;
+  signal s_itof_result : std_logic_vector(WIDTH-1 downto 0);
 
   -- FTOI operations.
   signal s_ftoi_enable : std_logic;
@@ -132,12 +133,6 @@ architecture rtl of fpu_impl is
   signal s_fmul_exponent : std_logic_vector(EXP_BITS-1 downto 0);
   signal s_fmul_significand : std_logic_vector(SIGNIFICAND_BITS-1 downto 0);
   signal s_fmul_result_ready : std_logic;
-
-  -- Three-cycle results.
-  signal s_f3_props : T_FLOAT_PROPS;
-  signal s_f3_exponent : std_logic_vector(EXP_BITS-1 downto 0);
-  signal s_f3_significand : std_logic_vector(SIGNIFICAND_BITS-1 downto 0);
-  signal s_f3_next_result : std_logic_vector(WIDTH-1 downto 0);
 
   -- Four-cycle results.
   signal s_f4_props : T_FLOAT_PROPS;
@@ -292,6 +287,20 @@ begin
       o_result_ready => s_itof_result_ready
     );
 
+  -- Compose the final result for ITOF.
+  ComposeResultITOF: entity work.float_compose
+    generic map (
+      WIDTH => WIDTH,
+      EXP_BITS => EXP_BITS,
+      FRACT_BITS => FRACT_BITS
+    )
+    port map (
+      i_props => s_itof_props,
+      i_exponent => s_itof_exponent,
+      i_significand => s_itof_significand,
+      o_result => s_itof_result
+    );
+
 
   --------------------------------------------------------------------------------------------------
   -- FTOI/FTOU/FTOIR/FTOUR
@@ -334,28 +343,10 @@ begin
 
 
   --------------------------------------------------------------------------------------------------
-  -- Compose the final result for three-cycle operations.
+  -- Select the final result for three-cycle operations.
   --------------------------------------------------------------------------------------------------
 
-  -- Select the decomposed results from the active unit.
-  s_f3_props <= s_itof_props;
-  s_f3_exponent <= s_itof_exponent;
-  s_f3_significand <= s_itof_significand;
-
-  ComposeResultF2: entity work.float_compose
-    generic map (
-      WIDTH => WIDTH,
-      EXP_BITS => EXP_BITS,
-      FRACT_BITS => FRACT_BITS
-    )
-    port map (
-      i_props => s_f3_props,
-      i_exponent => s_f3_exponent,
-      i_significand => s_f3_significand,
-      o_result => s_f3_next_result
-    );
-
-  o_f3_next_result <= s_f3_next_result when s_itof_result_ready else
+  o_f3_next_result <= s_itof_result when s_itof_result_ready = '1' else
                       s_ftoi_result;
   o_f3_next_result_ready <= s_itof_result_ready or s_ftoi_result_ready;
 

@@ -146,15 +146,22 @@ begin
       s_if1_latched_btb_target <= (others => '0');
       s_if1_latched_btb_taken <= '0';
     elsif rising_edge(i_clk) then
+      -- We need to catch PC corrections and keep them as long as IF1 is stalled.
+      if i_pccorr_adjust = '1' then
+        s_if1_latched_pccorr_adjusted_pc <= i_pccorr_adjusted_pc(C_WORD_SIZE-1 downto 2);
+      end if;
       if i_pccorr_adjust = '1' and s_stall_if1 = '1' then
         s_if1_latched_pccorr_adjust <= '1';
-        s_if1_latched_pccorr_adjusted_pc <= i_pccorr_adjusted_pc(C_WORD_SIZE-1 downto 2);
-      else
+      elsif s_stall_if1 = '0' then
         s_if1_latched_pccorr_adjust <= '0';
+      end if;
+
+      -- We need to catch BTB hints and keep them as long as IF1 is stalled.
+      if s_if1_btb_taken = '1' then
+        s_if1_latched_btb_target <= s_if1_btb_target(C_WORD_SIZE-1 downto 2);
       end if;
       if s_if1_btb_taken = '1' and (s_stall_if1 = '1' or s_if1_request_is_active = '0') then
         s_if1_latched_btb_taken <= '1';
-        s_if1_latched_btb_target <= s_if1_btb_target(C_WORD_SIZE-1 downto 2);
       else
         s_if1_latched_btb_taken <= '0';
       end if;

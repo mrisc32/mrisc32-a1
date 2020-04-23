@@ -188,6 +188,8 @@ architecture rtl of decode is
   signal s_fpu_en : std_logic;
 
   -- Signals for handling discarding of the current operation (i.e. bubble).
+  signal s_latched_cancel : std_logic;
+  signal s_cancel : std_logic;
   signal s_bubble : std_logic;
   signal s_reg_a_required_masked : std_logic;
   signal s_reg_b_required_masked : std_logic;
@@ -203,6 +205,23 @@ architecture rtl of decode is
   signal s_fpu_en_masked : std_logic;
   signal s_is_branch_masked : std_logic;
 begin
+  -- Should the current instruction be canceled?
+  process(i_clk, i_rst)
+  begin
+    if i_rst = '1' then
+      s_latched_cancel <= '0';
+    elsif rising_edge(i_clk) then
+      if i_cancel = '1' and i_stall = '1' then
+        s_latched_cancel <= '1';
+      elsif i_stall = '0' then
+        s_latched_cancel <= '0';
+      end if;
+    end if;
+  end process;
+
+  s_cancel <= i_cancel or s_latched_cancel;
+
+
   --------------------------------------------------------------------------------------------------
   -- Instruction decoding.
   --------------------------------------------------------------------------------------------------
@@ -260,7 +279,7 @@ begin
   -- Determine vector mode.
   s_vector_mode(1) <= i_instr(15) and not s_is_type_d;
   s_vector_mode(0) <= i_instr(14) and s_is_type_a;
-  s_is_vector_op <= '1' when s_vector_mode /= "00" and (i_bubble or i_cancel) = '0' else '0';
+  s_is_vector_op <= '1' when s_vector_mode /= "00" and (i_bubble or s_cancel) = '0' else '0';
   s_reg_a_is_vector <= s_is_vector_op and not s_is_mem_op;
   s_reg_b_is_vector <= s_vector_mode(0);
   s_reg_c_is_vector <= s_is_vector_op;
@@ -316,7 +335,7 @@ begin
         i_clk => i_clk,
         i_rst => i_rst,
         i_stall => s_stall_vector_control,
-        i_cancel => i_cancel,
+        i_cancel => s_cancel,
         i_is_vector_op => s_is_vector_op,
         i_vl => s_vl_data_or_fwd,
         i_fold => s_is_folding_vector_op,
@@ -458,7 +477,7 @@ begin
   s_missing_fwd_operand <= s_is_vector_op and i_vl_fwd_use_value and not i_vl_fwd_value_ready;
 
   -- Should we discard the operation (i.e. send a bubble down the pipeline)?
-  s_bubble <= i_bubble or i_cancel or s_missing_fwd_operand or s_bubble_from_vector_op;
+  s_bubble <= i_bubble or s_cancel or s_missing_fwd_operand or s_bubble_from_vector_op;
   s_reg_a_required_masked <= s_reg_a_required when s_bubble = '0' else '0';
   s_reg_b_required_masked <= s_reg_b_required when s_bubble = '0' else '0';
   s_reg_c_required_masked <= s_reg_c_required when s_bubble = '0' else '0';
@@ -577,5 +596,5 @@ begin
   end process;
 
   -- Do we need to stall the pipeline (async)?
-  o_stall <= (not (i_bubble or i_cancel)) and (s_missing_fwd_operand or s_is_vector_op_busy);
+  o_stall <= (not (i_bubble or s_cancel)) and (s_missing_fwd_operand or s_is_vector_op_busy);
 end rtl;

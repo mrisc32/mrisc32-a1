@@ -108,19 +108,23 @@ begin
       (i_src_reg.is_vector = i_dst_reg_from_wb.is_vector) else '0';
 
   -- Which value to forward?
-  o_value <= i_value_from_ex1 when (s_reg_from_ex1 and i_ready_from_ex1) = '1' else
-             i_value_from_ex2 when (s_reg_from_ex2 and i_ready_from_ex2) = '1' else
-             i_value_from_ex3 when (s_reg_from_ex3 and i_ready_from_ex3) = '1' else
+  o_value <= i_value_from_ex1 when s_reg_from_ex1 = '1' else
+             i_value_from_ex2 when s_reg_from_ex2 = '1' else
+             i_value_from_ex3 when s_reg_from_ex3 = '1' else
              i_value_from_ex4 when s_reg_from_ex4 = '1' else
              i_value_from_wb;
-
-  -- Should the forwarded pipeline value be used instead of register file value?
-  o_use_value <= i_reg_required and (s_reg_from_ex1 or s_reg_from_ex2 or s_reg_from_ex3 or s_reg_from_ex4 or s_reg_from_wb);
 
   -- Is the value ready for use?
   o_value_ready <= i_ready_from_ex1 when s_reg_from_ex1 = '1' else
                    i_ready_from_ex2 when s_reg_from_ex2 = '1' else
                    i_ready_from_ex3 when s_reg_from_ex3 = '1' else
-                   '1';
+                   (s_reg_from_ex4 or s_reg_from_wb);
+
+  -- Should the forwarded pipeline value be used instead of register file value?
+  o_use_value <= i_reg_required and (s_reg_from_ex1 or
+                                     s_reg_from_ex2 or
+                                     s_reg_from_ex3 or
+                                     s_reg_from_ex4 or
+                                     s_reg_from_wb);
 end rtl;
 
