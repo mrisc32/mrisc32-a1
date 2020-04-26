@@ -34,6 +34,7 @@ entity execute is
     -- Control signals.
     i_clk : in std_logic;
     i_rst : in std_logic;
+    i_bubble : in std_logic;
     o_stall : out std_logic;
 
     -- PC signal from ID (sync).
@@ -252,11 +253,13 @@ begin
   -- A branch was correctly predicted if it's either:
   --   a) a taken branch and the branch base was the expected base, or
   --   b) an untaken branch and the next PC equals this PC + 4, or
-  --   c) not a branch at all
+  --   c) not a branch at all and the next PC equals this PC + 4, or
+  --   d) we got a bubble (e.g. after reset)
   s_mispredicted_pc <= '0' when
       (s_branch_is_taken = '1' and i_branch_base_expected = s_branch_base) or
       (s_branch_is_taken = '0' and i_branch_pc_plus_4 = i_id_pc) or
-      (i_branch_is_branch = '0')
+      (i_branch_is_branch = '0' and i_branch_pc_plus_4 = i_id_pc) or
+      (i_bubble = '1')
       else '1';
 
   -- Branch/PC correction signals to the PC stage.

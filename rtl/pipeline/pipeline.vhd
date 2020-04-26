@@ -116,6 +116,7 @@ architecture rtl of pipeline is
 
   -- From REG.
   signal s_rf_stall : std_logic;
+  signal s_rf_bubble : std_logic;
 
   signal s_rf_pc : std_logic_vector(C_WORD_SIZE-1 downto 0);
 
@@ -365,6 +366,7 @@ begin
       o_stall => s_rf_stall,
       i_cancel => s_cancel_speculative_instructions,
       i_bubble => s_id_bubble,
+      o_bubble => s_rf_bubble,
 
       -- PC signal from IF (sync).
       i_if_pc => s_if_pc,
@@ -481,6 +483,7 @@ begin
     port map (
       i_clk => i_clk,
       i_rst => i_rst,
+      i_bubble => s_rf_bubble,
 
       o_stall => s_ex_stall,
 

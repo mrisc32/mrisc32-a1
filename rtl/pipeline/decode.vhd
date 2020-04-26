@@ -37,8 +37,7 @@ entity decode is
     i_stall : in std_logic;
     o_stall : out std_logic;
     i_cancel : in std_logic;
-    o_bubble : out std_logic;  -- Only informational: The decode stage will generate NOP:s for
-                               -- every bubble, so this signal is not strictly necessary.
+    o_bubble : out std_logic;
 
     -- From the IF stage (sync).
     i_pc : in std_logic_vector(C_WORD_SIZE-1 downto 0);
@@ -550,7 +549,7 @@ begin
       o_mul_en <= '0';
       o_div_en <= '0';
       o_fpu_en <= '0';
-      o_bubble <= '0';
+      o_bubble <= '1';
     elsif rising_edge(i_clk) then
       if i_stall = '0' then
         o_branch_is_branch <= s_is_branch_masked;

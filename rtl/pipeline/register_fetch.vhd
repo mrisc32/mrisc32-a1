@@ -43,6 +43,7 @@ entity register_fetch is
     o_stall : out std_logic;
     i_cancel : in std_logic;
     i_bubble : in std_logic;
+    o_bubble : out std_logic;
 
     -- PC signal from IF (sync).
     i_if_pc : in std_logic_vector(C_WORD_SIZE-1 downto 0);
@@ -406,6 +407,8 @@ begin
       o_branch_offset <= (others => '0');
       o_branch_base_expected <= (others => '0');
       o_branch_pc_plus_4 <= (others => '0');
+
+      o_bubble <= '1';
     elsif rising_edge(i_clk) then
       if i_stall = '0' then
         o_pc <= i_pc;
@@ -435,6 +438,8 @@ begin
         o_branch_offset <= i_branch_offset;
         o_branch_base_expected <= s_branch_base_expected;
         o_branch_pc_plus_4 <= s_branch_pc_plus_4;
+
+        o_bubble <= s_bubble;
       end if;
     end if;
   end process;
