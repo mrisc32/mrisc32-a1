@@ -160,9 +160,9 @@ begin
       if s_if1_btb_taken = '1' then
         s_if1_latched_btb_target <= s_if1_btb_target(C_WORD_SIZE-1 downto 2);
       end if;
-      if s_if1_btb_taken = '1' and (s_stall_if1 = '1' or s_if1_request_is_active = '0') then
+      if s_if1_btb_taken = '1' and s_stall_if1 = '1' then
         s_if1_latched_btb_taken <= '1';
-      else
+      elsif s_stall_if1 = '0' then
         s_if1_latched_btb_taken <= '0';
       end if;
     end if;
