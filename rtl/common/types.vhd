@@ -118,8 +118,7 @@ package types is
   constant C_ALU_LSR   : T_ALU_OP := "100011";
   constant C_ALU_SHUF  : T_ALU_OP := "100100";
 
-  constant C_ALU_PACKB : T_ALU_OP := "110000";
-  constant C_ALU_PACKH : T_ALU_OP := "110001";
+  constant C_ALU_PACK  : T_ALU_OP := "110000";
 
   -- SAU operations.
   constant C_SAU_OP_SIZE : integer := 3;
