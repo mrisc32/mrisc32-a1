@@ -62,11 +62,6 @@ architecture rtl of alu is
   signal s_add_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_sub_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
 
-  -- Signals for the PACK operation.
-  signal s_pack_w_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
-  signal s_pack_h_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
-  signal s_pack_b_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
-
   -- Signals for the shifter.
   signal s_shift_is_right : std_logic;
   signal s_shift_is_arithmetic : std_logic;
@@ -132,16 +127,18 @@ begin
     );
 
   -- C_ALU_PACK
-  s_pack_w_res <= i_src_a(15 downto 0) & i_src_b(15 downto 0);
-  s_pack_h_res <= i_src_a(23 downto 16) & i_src_b(23 downto 16) & i_src_a(7 downto 0) & i_src_b(7 downto 0);
-  s_pack_b_res <= i_src_a(27 downto 24) & i_src_b(27 downto 24) & i_src_a(19 downto 16) & i_src_b(19 downto 16) &
-                  i_src_a(11 downto 8) & i_src_b(11 downto 8) & i_src_a(3 downto 0) & i_src_b(3 downto 0);
-  PackMux: with i_packed_mode select
-    s_pack_res <=
-      s_pack_w_res when "00",
-      s_pack_b_res when "01",
-      s_pack_h_res when "10",
-      (others => '-') when others;
+  AluPack: entity work.pack32
+    generic map (
+      CONFIG => CONFIG
+    )
+    port map (
+      i_src_a => i_src_a,
+      i_src_b => i_src_b,
+      i_saturate => '0',  -- TODO(m): Implement me!
+      i_unsigned => '0',  -- TODO(m): Implement me!
+      i_packed_mode => i_packed_mode,
+      o_result => s_pack_res
+    );
 
   -- C_ALU_LDLI, C_ALU_LDHI, C_ALU_LDHIO
   s_ldli_res <= i_src_b;
