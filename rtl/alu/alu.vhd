@@ -58,6 +58,10 @@ architecture rtl of alu is
   signal s_addhi_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_clz_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
 
+  -- Signals for the packer.
+  signal s_pack_is_saturated : std_logic;
+  signal s_pack_is_unsigned : std_logic;
+
   -- Signals for the adder.
   signal s_add_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_sub_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
@@ -127,6 +131,18 @@ begin
     );
 
   -- C_ALU_PACK
+  PackSaturatedMux: with i_op select
+    s_pack_is_saturated <=
+        '1' when C_ALU_PACKS | C_ALU_PACKSU,
+        '0' when C_ALU_PACK,
+        '-' when others;
+
+  PackUnsignedMux: with i_op select
+    s_pack_is_unsigned <=
+        '1' when C_ALU_PACKSU,
+        '0' when C_ALU_PACKS,
+        '-' when others;
+
   AluPack: entity work.pack32
     generic map (
       CONFIG => CONFIG
@@ -134,8 +150,8 @@ begin
     port map (
       i_src_a => i_src_a,
       i_src_b => i_src_b,
-      i_saturate => '0',  -- TODO(m): Implement me!
-      i_unsigned => '0',  -- TODO(m): Implement me!
+      i_saturate => s_pack_is_saturated,
+      i_unsigned => s_pack_is_unsigned,
       i_packed_mode => i_packed_mode,
       o_result => s_pack_res
     );
@@ -266,7 +282,7 @@ begin
         s_shuf_res when C_ALU_SHUF,
         s_clz_res when C_ALU_CLZ,
         s_rev_res when C_ALU_REV,
-        s_pack_res when C_ALU_PACK,
+        s_pack_res when C_ALU_PACK | C_ALU_PACKS | C_ALU_PACKSU,
         s_ldli_res when C_ALU_LDLI,
         s_ldhi_res when C_ALU_LDHI,
         s_ldhio_res when C_ALU_LDHIO,

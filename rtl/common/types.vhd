@@ -84,41 +84,43 @@ package types is
   constant C_ALU_OP_SIZE : integer := 6;
   subtype T_ALU_OP is std_logic_vector(C_ALU_OP_SIZE-1 downto 0);
 
-  constant C_ALU_CPUID : T_ALU_OP := "000000";
+  constant C_ALU_CPUID  : T_ALU_OP := "000000";
 
-  constant C_ALU_LDLI  : T_ALU_OP := "000001";
-  constant C_ALU_LDHI  : T_ALU_OP := "000010";
-  constant C_ALU_LDHIO : T_ALU_OP := "000011";
-  constant C_ALU_ADDHI : T_ALU_OP := "000100";
+  constant C_ALU_LDLI   : T_ALU_OP := "000001";
+  constant C_ALU_LDHI   : T_ALU_OP := "000010";
+  constant C_ALU_LDHIO  : T_ALU_OP := "000011";
+  constant C_ALU_ADDHI  : T_ALU_OP := "000100";
 
-  constant C_ALU_CLZ   : T_ALU_OP := "001000";  -- Two-operand (op=0x7c, func=0x00)
-  constant C_ALU_REV   : T_ALU_OP := "001001";  -- Two-operand (op=0x7c, func=0x01)
+  constant C_ALU_CLZ    : T_ALU_OP := "001000";  -- Two-operand (op=0x7c, func=0x00)
+  constant C_ALU_REV    : T_ALU_OP := "001001";  -- Two-operand (op=0x7c, func=0x01)
 
-  constant C_ALU_OR    : T_ALU_OP := "010000";
-  constant C_ALU_NOR   : T_ALU_OP := "010001";
-  constant C_ALU_AND   : T_ALU_OP := "010010";
-  constant C_ALU_BIC   : T_ALU_OP := "010011";
-  constant C_ALU_XOR   : T_ALU_OP := "010100";
-  constant C_ALU_ADD   : T_ALU_OP := "010101";
-  constant C_ALU_SUB   : T_ALU_OP := "010110";
+  constant C_ALU_OR     : T_ALU_OP := "010000";
+  constant C_ALU_NOR    : T_ALU_OP := "010001";
+  constant C_ALU_AND    : T_ALU_OP := "010010";
+  constant C_ALU_BIC    : T_ALU_OP := "010011";
+  constant C_ALU_XOR    : T_ALU_OP := "010100";
+  constant C_ALU_ADD    : T_ALU_OP := "010101";
+  constant C_ALU_SUB    : T_ALU_OP := "010110";
 
-  constant C_ALU_SEQ   : T_ALU_OP := "010111";
-  constant C_ALU_SNE   : T_ALU_OP := "011000";
-  constant C_ALU_SLT   : T_ALU_OP := "011001";
-  constant C_ALU_SLTU  : T_ALU_OP := "011010";
-  constant C_ALU_SLE   : T_ALU_OP := "011011";
-  constant C_ALU_SLEU  : T_ALU_OP := "011100";
-  constant C_ALU_MIN   : T_ALU_OP := "011101";
-  constant C_ALU_MAX   : T_ALU_OP := "011110";
-  constant C_ALU_MINU  : T_ALU_OP := "011111";
-  constant C_ALU_MAXU  : T_ALU_OP := "100000";
+  constant C_ALU_SEQ    : T_ALU_OP := "010111";
+  constant C_ALU_SNE    : T_ALU_OP := "011000";
+  constant C_ALU_SLT    : T_ALU_OP := "011001";
+  constant C_ALU_SLTU   : T_ALU_OP := "011010";
+  constant C_ALU_SLE    : T_ALU_OP := "011011";
+  constant C_ALU_SLEU   : T_ALU_OP := "011100";
+  constant C_ALU_MIN    : T_ALU_OP := "011101";
+  constant C_ALU_MAX    : T_ALU_OP := "011110";
+  constant C_ALU_MINU   : T_ALU_OP := "011111";
+  constant C_ALU_MAXU   : T_ALU_OP := "100000";
 
-  constant C_ALU_ASR   : T_ALU_OP := "100001";
-  constant C_ALU_LSL   : T_ALU_OP := "100010";
-  constant C_ALU_LSR   : T_ALU_OP := "100011";
-  constant C_ALU_SHUF  : T_ALU_OP := "100100";
+  constant C_ALU_ASR    : T_ALU_OP := "100001";
+  constant C_ALU_LSL    : T_ALU_OP := "100010";
+  constant C_ALU_LSR    : T_ALU_OP := "100011";
+  constant C_ALU_SHUF   : T_ALU_OP := "100100";
 
-  constant C_ALU_PACK  : T_ALU_OP := "110000";
+  constant C_ALU_PACK   : T_ALU_OP := "110000";
+  constant C_ALU_PACKS  : T_ALU_OP := "110001";
+  constant C_ALU_PACKSU : T_ALU_OP := "110010";
 
   -- SAU operations.
   constant C_SAU_OP_SIZE : integer := 3;
