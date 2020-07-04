@@ -42,7 +42,12 @@ entity fpu_impl is
     WIDTH : positive := 32;
     EXP_BITS : positive := 8;
     EXP_BIAS : positive := 127;
-    FRACT_BITS : positive := 23
+    FRACT_BITS : positive := 23;
+
+    PACKED_WIDTH : integer := 0;
+    PACKED_EXP_BITS : integer := 0;
+    PACKED_EXP_BIAS : integer := 0;
+    PACKED_FRACT_BITS : integer := 0
   );
   port(
     -- Control signals.
@@ -59,6 +64,8 @@ entity fpu_impl is
     -- Outputs (async).
     o_f1_next_result : out std_logic_vector(WIDTH-1 downto 0);
     o_f1_next_result_ready : out std_logic;
+    o_f2_next_result : out std_logic_vector(WIDTH-1 downto 0);
+    o_f2_next_result_ready : out std_logic;
     o_f3_next_result : out std_logic_vector(WIDTH-1 downto 0);
     o_f3_next_result_ready : out std_logic;
     o_f4_next_result : out std_logic_vector(WIDTH-1 downto 0);
@@ -77,6 +84,7 @@ architecture rtl of fpu_impl is
   signal s_is_minmax_op : std_logic;
   signal s_is_add_op : std_logic;
   signal s_is_mul_op : std_logic;
+  signal s_is_fpack_op : std_logic;
   signal s_is_single_cycle_op : std_logic;
 
   -- Decomposed inputs.
@@ -87,6 +95,11 @@ architecture rtl of fpu_impl is
   signal s_props_b : T_FLOAT_PROPS;
   signal s_exponent_b : std_logic_vector(EXP_BITS-1 downto 0);
   signal s_significand_b : std_logic_vector(SIGNIFICAND_BITS-1 downto 0);
+
+  -- FPACK operations.
+  signal s_fpack_enable : std_logic;
+  signal s_fpack_result_ready : std_logic;
+  signal s_fpack_result : std_logic_vector(WIDTH-1 downto 0);
 
   -- ITOF operations.
   signal s_itof_enable : std_logic;
@@ -170,6 +183,8 @@ begin
 
   s_is_mul_op <= '1' when i_op = C_FPU_FMUL else '0';
 
+  s_is_fpack_op <= '1' when i_op = C_FPU_FPACK else '0';
+
   -- Is this a single cycle operation?
   s_is_single_cycle_op <= s_is_compare_op or s_is_minmax_op;
 
@@ -227,7 +242,7 @@ begin
     );
 
   -- Min/Max operations.
-  s_is_max_op <= i_op(0);
+  s_is_max_op <= '1' when i_op(0) = C_FPU_FMAX(0) else '0';
   s_minmax_sel_a <= s_compare_lt xor s_is_max_op;
   s_minmax_res <= i_src_a when s_minmax_sel_a = '1' else i_src_b;
 
@@ -246,6 +261,61 @@ begin
   -- Select the result from the first FPU stage.
   o_f1_next_result <= s_set_res when s_is_compare_op = '1' else s_minmax_res;
   o_f1_next_result_ready <= s_is_single_cycle_op and i_enable;
+
+
+  --================================================================================================
+  -- Two-cycle FPU operations.
+  --================================================================================================
+
+  --------------------------------------------------------------------------------------------------
+  -- FPACK
+  --------------------------------------------------------------------------------------------------
+
+  FPACK_GEN : if CONFIG.HAS_PO and PACKED_WIDTH > 0 generate
+  begin
+    s_fpack_enable <= i_enable and s_is_fpack_op;
+
+    FPACK: entity work.fpack
+      generic map (
+        WIDTH => WIDTH,
+        EXP_BITS => EXP_BITS,
+        EXP_BIAS => EXP_BIAS,
+        FRACT_BITS => FRACT_BITS,
+        PACKED_WIDTH => PACKED_WIDTH,
+        PACKED_EXP_BITS => PACKED_EXP_BITS,
+        PACKED_EXP_BIAS => PACKED_EXP_BIAS,
+        PACKED_FRACT_BITS => PACKED_FRACT_BITS
+      )
+      port map (
+        -- Control.
+        i_clk => i_clk,
+        i_rst => i_rst,
+        i_stall => i_stall,
+        i_enable => s_fpack_enable,
+
+        -- Inputs (async).
+        i_props_a => s_props_a,
+        i_exponent_a => s_exponent_a,
+        i_significand_a => s_significand_a,
+        i_props_b => s_props_b,
+        i_exponent_b => s_exponent_b,
+        i_significand_b => s_significand_b,
+
+        -- Outputs (async).
+        o_result => s_fpack_result,
+        o_result_ready => s_fpack_result_ready
+      );
+  else generate
+    s_fpack_result <= (others => '0');
+    s_fpack_result_ready <= '0';
+  end generate;
+
+  --------------------------------------------------------------------------------------------------
+  -- Select the final result for two-cycle operations.
+  --------------------------------------------------------------------------------------------------
+
+  o_f2_next_result <= s_fpack_result;
+  o_f2_next_result_ready <= s_fpack_result_ready;
 
 
   --================================================================================================

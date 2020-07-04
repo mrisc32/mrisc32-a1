@@ -47,6 +47,8 @@ entity fpu is
     -- Outputs (async).
     o_f1_next_result : out std_logic_vector(C_WORD_SIZE-1 downto 0);
     o_f1_next_result_ready : out std_logic;
+    o_f2_next_result : out std_logic_vector(C_WORD_SIZE-1 downto 0);
+    o_f2_next_result_ready : out std_logic;
     o_f3_next_result : out std_logic_vector(C_WORD_SIZE-1 downto 0);
     o_f3_next_result_ready : out std_logic;
     o_f4_next_result : out std_logic_vector(C_WORD_SIZE-1 downto 0);
@@ -58,6 +60,8 @@ architecture rtl of fpu is
   signal s_fpu32_enable : std_logic;
   signal s_f1_next_fpu32_result : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_f1_next_fpu32_result_ready : std_logic;
+  signal s_f2_next_fpu32_result : std_logic_vector(C_WORD_SIZE-1 downto 0);
+  signal s_f2_next_fpu32_result_ready : std_logic;
   signal s_f3_next_fpu32_result : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_f3_next_fpu32_result_ready : std_logic;
   signal s_f4_next_fpu32_result : std_logic_vector(C_WORD_SIZE-1 downto 0);
@@ -66,6 +70,8 @@ architecture rtl of fpu is
   signal s_fpu16_enable : std_logic;
   signal s_f1_next_fpu16_result : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_f1_next_fpu16_result_ready : std_logic;
+  signal s_f2_next_fpu16_result : std_logic_vector(C_WORD_SIZE-1 downto 0);
+  signal s_f2_next_fpu16_result_ready : std_logic;
   signal s_f3_next_fpu16_result : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_f3_next_fpu16_result_ready : std_logic;
   signal s_f4_next_fpu16_result : std_logic_vector(C_WORD_SIZE-1 downto 0);
@@ -74,6 +80,8 @@ architecture rtl of fpu is
   signal s_fpu8_enable : std_logic;
   signal s_f1_next_fpu8_result : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_f1_next_fpu8_result_ready : std_logic;
+  signal s_f2_next_fpu8_result : std_logic_vector(C_WORD_SIZE-1 downto 0);
+  signal s_f2_next_fpu8_result_ready : std_logic;
   signal s_f3_next_fpu8_result : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_f3_next_fpu8_result_ready : std_logic;
   signal s_f4_next_fpu8_result : std_logic_vector(C_WORD_SIZE-1 downto 0);
@@ -90,7 +98,11 @@ begin
       WIDTH => F32_WIDTH,
       EXP_BITS => F32_EXP_BITS,
       EXP_BIAS => F32_EXP_BIAS,
-      FRACT_BITS => F32_FRACT_BITS
+      FRACT_BITS => F32_FRACT_BITS,
+      PACKED_WIDTH => F16_WIDTH,
+      PACKED_EXP_BITS => F16_EXP_BITS,
+      PACKED_EXP_BIAS => F16_EXP_BIAS,
+      PACKED_FRACT_BITS => F16_FRACT_BITS
     )
     port map (
       i_clk => i_clk,
@@ -102,6 +114,8 @@ begin
       i_src_b => i_src_b,
       o_f1_next_result => s_f1_next_fpu32_result,
       o_f1_next_result_ready => s_f1_next_fpu32_result_ready,
+      o_f2_next_result => s_f2_next_fpu32_result,
+      o_f2_next_result_ready => s_f2_next_fpu32_result_ready,
       o_f3_next_result => s_f3_next_fpu32_result,
       o_f3_next_result_ready => s_f3_next_fpu32_result_ready,
       o_f4_next_result => s_f4_next_fpu32_result,
@@ -112,6 +126,7 @@ begin
     -- 16-bit floating point pipelines.
     FPU16Gen: for k in 1 to 2 generate
       signal s_f1_next_result_ready : std_logic_vector(1 to 2);
+      signal s_f2_next_result_ready : std_logic_vector(1 to 2);
       signal s_f3_next_result_ready : std_logic_vector(1 to 2);
       signal s_f4_next_result_ready : std_logic_vector(1 to 2);
     begin
@@ -120,7 +135,11 @@ begin
           WIDTH => F16_WIDTH,
           EXP_BITS => F16_EXP_BITS,
           EXP_BIAS => F16_EXP_BIAS,
-          FRACT_BITS => F16_FRACT_BITS
+          FRACT_BITS => F16_FRACT_BITS,
+          PACKED_WIDTH => F8_WIDTH,
+          PACKED_EXP_BITS => F8_EXP_BITS,
+          PACKED_EXP_BIAS => F8_EXP_BIAS,
+          PACKED_FRACT_BITS => F8_FRACT_BITS
         )
         port map (
           i_clk => i_clk,
@@ -132,6 +151,8 @@ begin
           i_src_b => i_src_b((16*k)-1 downto 16*(k-1)),
           o_f1_next_result => s_f1_next_fpu16_result((16*k)-1 downto 16*(k-1)),
           o_f1_next_result_ready => s_f1_next_result_ready(k),
+          o_f2_next_result => s_f2_next_fpu16_result((16*k)-1 downto 16*(k-1)),
+          o_f2_next_result_ready => s_f2_next_result_ready(k),
           o_f3_next_result => s_f3_next_fpu16_result((16*k)-1 downto 16*(k-1)),
           o_f3_next_result_ready => s_f3_next_result_ready(k),
           o_f4_next_result => s_f4_next_fpu16_result((16*k)-1 downto 16*(k-1)),
@@ -141,6 +162,7 @@ begin
         -- Note: For some signals we only have to consider one of the parallel pipelines.
         FPU16ExtractSignals: if k=1 generate
           s_f1_next_fpu16_result_ready <= s_f1_next_result_ready(1);
+          s_f2_next_fpu16_result_ready <= s_f2_next_result_ready(1);
           s_f3_next_fpu16_result_ready <= s_f3_next_result_ready(1);
           s_f4_next_fpu16_result_ready <= s_f4_next_result_ready(1);
         end generate;
@@ -149,6 +171,7 @@ begin
     -- 8-bit floating point pipelines.
     FPU8Gen: for k in 1 to 4 generate
       signal s_f1_next_result_ready : std_logic_vector(1 to 4);
+      signal s_f2_next_result_ready : std_logic_vector(1 to 4);
       signal s_f3_next_result_ready : std_logic_vector(1 to 4);
       signal s_f4_next_result_ready : std_logic_vector(1 to 4);
     begin
@@ -157,7 +180,9 @@ begin
           WIDTH => F8_WIDTH,
           EXP_BITS => F8_EXP_BITS,
           EXP_BIAS => F8_EXP_BIAS,
-          FRACT_BITS => F8_FRACT_BITS
+          FRACT_BITS => F8_FRACT_BITS,
+          -- We don't support packing 8-bit floating-point to anything smaller.
+          PACKED_WIDTH => 0
         )
         port map (
           i_clk => i_clk,
@@ -169,6 +194,8 @@ begin
           i_src_b => i_src_b((8*k)-1 downto 8*(k-1)),
           o_f1_next_result => s_f1_next_fpu8_result((8*k)-1 downto 8*(k-1)),
           o_f1_next_result_ready => s_f1_next_result_ready(k),
+          o_f2_next_result => s_f2_next_fpu8_result((8*k)-1 downto 8*(k-1)),
+          o_f2_next_result_ready => s_f2_next_result_ready(k),
           o_f3_next_result => s_f3_next_fpu8_result((8*k)-1 downto 8*(k-1)),
           o_f3_next_result_ready => s_f3_next_result_ready(k),
           o_f4_next_result => s_f4_next_fpu8_result((8*k)-1 downto 8*(k-1)),
@@ -178,6 +205,7 @@ begin
         -- Note: For some signals we only have to consider one of the parallel pipelines.
         FPU8ExtractSignals: if k=1 generate
           s_f1_next_fpu8_result_ready <= s_f1_next_result_ready(1);
+          s_f2_next_fpu8_result_ready <= s_f2_next_result_ready(1);
           s_f3_next_fpu8_result_ready <= s_f3_next_result_ready(1);
           s_f4_next_fpu8_result_ready <= s_f4_next_result_ready(1);
         end generate;
@@ -194,6 +222,16 @@ begin
                               s_f1_next_fpu8_result_ready;
 
     -- Select the output signals from the second pipeline stage.
+    o_f2_next_result <=
+        s_f2_next_fpu32_result when s_f2_next_fpu32_result_ready = '1' else
+        s_f2_next_fpu16_result when s_f2_next_fpu16_result_ready = '1' else
+        s_f2_next_fpu8_result when s_f2_next_fpu8_result_ready = '1' else
+        (others => '-');
+    o_f2_next_result_ready <= s_f2_next_fpu32_result_ready or
+                              s_f2_next_fpu16_result_ready or
+                              s_f2_next_fpu8_result_ready;
+
+    -- Select the output signals from the third pipeline stage.
     o_f3_next_result <=
         s_f3_next_fpu32_result when s_f3_next_fpu32_result_ready = '1' else
         s_f3_next_fpu16_result when s_f3_next_fpu16_result_ready = '1' else
@@ -216,6 +254,8 @@ begin
     -- In unpacked mode we only have to consider the 32-bit results.
     o_f1_next_result <= s_f1_next_fpu32_result;
     o_f1_next_result_ready <= s_f1_next_fpu32_result_ready;
+    o_f2_next_result <= s_f2_next_fpu32_result;
+    o_f2_next_result_ready <= s_f2_next_fpu32_result_ready;
     o_f3_next_result <= s_f3_next_fpu32_result;
     o_f3_next_result_ready <= s_f3_next_fpu32_result_ready;
     o_f4_next_result <= s_f4_next_fpu32_result;

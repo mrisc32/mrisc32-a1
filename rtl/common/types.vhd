@@ -172,6 +172,7 @@ package types is
   constant C_FPU_FTOU : T_FPU_OP := "01011";
   constant C_FPU_FTOIR : T_FPU_OP := "01100";
   constant C_FPU_FTOUR : T_FPU_OP := "01101";
+  constant C_FPU_FPACK : T_FPU_OP := "01110";
 
   constant C_FPU_FADD : T_FPU_OP := "10000";
   constant C_FPU_FSUB : T_FPU_OP := "10001";

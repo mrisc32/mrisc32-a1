@@ -135,6 +135,8 @@ architecture rtl of execute is
   signal s_div_stall : std_logic;
   signal s_fpu_f1_result : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_fpu_f1_result_ready : std_logic;
+  signal s_fpu_f2_result : std_logic_vector(C_WORD_SIZE-1 downto 0);
+  signal s_fpu_f2_result_ready : std_logic;
   signal s_fpu_f3_result : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_fpu_f3_result_ready : std_logic;
   signal s_fpu_f4_result : std_logic_vector(C_WORD_SIZE-1 downto 0);
@@ -404,6 +406,8 @@ begin
         i_src_b => i_src_b,
         o_f1_next_result => s_fpu_f1_result,
         o_f1_next_result_ready => s_fpu_f1_result_ready,
+        o_f2_next_result => s_fpu_f2_result,
+        o_f2_next_result_ready => s_fpu_f2_result_ready,
         o_f3_next_result => s_fpu_f3_result,
         o_f3_next_result_ready => s_fpu_f3_result_ready,
         o_f4_next_result => s_fpu_f4_result,
@@ -412,6 +416,8 @@ begin
   else generate
     s_fpu_f1_result <= (others => '0');
     s_fpu_f1_result_ready <= '0';
+    s_fpu_f2_result <= (others => '0');
+    s_fpu_f2_result_ready <= '0';
     s_fpu_f3_result <= (others => '0');
     s_fpu_f3_result_ready <= '0';
     s_fpu_f4_result <= (others => '0');
@@ -493,15 +499,17 @@ begin
 
 
   --------------------------------------------------------------------------------------------------
-  -- EX2: MEM, SAU.
+  -- EX2: MEM, SAU & FPU (2-cycle operations).
   --------------------------------------------------------------------------------------------------
 
   -- Select the result from the EX2 stage.
   s_ex2_next_result <= s_mem_result when s_mem_result_ready = '1' else
                        s_sau_result when s_sau_result_ready = '1' else
+                       s_fpu_f2_result when s_fpu_f2_result_ready = '1' else
                        s_ex1_result;
   s_ex2_next_result_ready <= s_mem_result_ready or
                              s_sau_result_ready or
+                             s_fpu_f2_result_ready or
                              s_ex1_result_ready;
 
   -- Outputs to the EX3 stage (sync).
@@ -539,7 +547,7 @@ begin
   -- EX3: MUL, DIV & FPU (3-cycle operations).
   --------------------------------------------------------------------------------------------------
 
-  -- Select the EX2, MUL or DIV result.
+  -- Select the result from the EX3 stage.
   s_ex3_next_result <= s_div_d3_result when s_div_d3_result_ready = '1' else
                        s_mul_result when s_mul_result_ready = '1' else
                        s_fpu_f3_result when s_fpu_f3_result_ready = '1' else
