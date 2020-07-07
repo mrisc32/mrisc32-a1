@@ -93,8 +93,9 @@ begin
   s_fpu8_enable <= i_enable when i_packed_mode = C_PACKED_BYTE else '0';
 
   -- 32-bit floating point pipeline.
-  FPU32_0: entity work.fpu_impl
+  FPU32: entity work.fpu_impl
     generic map (
+      CONFIG => CONFIG,
       WIDTH => F32_WIDTH,
       EXP_BITS => F32_EXP_BITS,
       EXP_BIAS => F32_EXP_BIAS,
@@ -130,8 +131,9 @@ begin
       signal s_f3_next_result_ready : std_logic_vector(1 to 2);
       signal s_f4_next_result_ready : std_logic_vector(1 to 2);
     begin
-      FPU16_1: entity work.fpu_impl
+      FPU16: entity work.fpu_impl
         generic map (
+          CONFIG => CONFIG,
           WIDTH => F16_WIDTH,
           EXP_BITS => F16_EXP_BITS,
           EXP_BIAS => F16_EXP_BIAS,
@@ -175,8 +177,9 @@ begin
       signal s_f3_next_result_ready : std_logic_vector(1 to 4);
       signal s_f4_next_result_ready : std_logic_vector(1 to 4);
     begin
-      FPU8_x: entity work.fpu_impl
+      FPU8: entity work.fpu_impl
         generic map (
+          CONFIG => CONFIG,
           WIDTH => F8_WIDTH,
           EXP_BITS => F8_EXP_BITS,
           EXP_BIAS => F8_EXP_BIAS,

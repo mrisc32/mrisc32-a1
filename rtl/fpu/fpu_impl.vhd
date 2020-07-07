@@ -36,9 +36,12 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 use work.types.all;
+use work.config.all;
 
 entity fpu_impl is
   generic(
+    CONFIG : T_CORE_CONFIG;
+
     WIDTH : positive := 32;
     EXP_BITS : positive := 8;
     EXP_BIAS : positive := 127;
