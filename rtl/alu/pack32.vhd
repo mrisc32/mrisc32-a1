@@ -46,9 +46,6 @@ architecture rtl of pack32 is
   constant C_PACKS : std_logic_vector(1 downto 0) := "10";
   constant C_PACKSU : std_logic_vector(1 downto 0) := "11";
 
-  signal s_op : std_logic_vector(1 downto 0);
-  signal s_res_32 : std_logic_vector(31 downto 0);
-
   function extract_lo(x : std_logic_vector) return std_logic_vector is
   begin
     return x((x'left + x'right)/2 downto x'right);
@@ -94,21 +91,23 @@ architecture rtl of pack32 is
     end if;
   end function;
 begin
-  SAT_GEN: if CONFIG.HAS_SA generate
-    -- Select operation (map to C_PACK, C_PACKS or C_PACKSU).
-    s_op <= i_saturate & i_unsigned;
-  else generate
-    -- Without support for saturating operations, we only implement PACK.
-    s_op <= C_PACK;
-  end generate;
-
-  -- 32-bit pack.
-  s_res_32 <= pack(i_src_a, i_src_b, s_op);
-
   PACKED_GEN: if CONFIG.HAS_PO generate
+    signal s_op : std_logic_vector(1 downto 0);
+    signal s_res_32 : std_logic_vector(31 downto 0);
     signal s_res_16 : std_logic_vector(31 downto 0);
     signal s_res_8 : std_logic_vector(31 downto 0);
   begin
+    SAT_GEN: if CONFIG.HAS_SA generate
+      -- Select operation (map to C_PACK, C_PACKS or C_PACKSU).
+      s_op <= i_saturate & i_unsigned;
+    else generate
+      -- Without support for saturating operations, we only implement PACK.
+      s_op <= C_PACK;
+    end generate;
+
+    -- 32-bit pack.
+    s_res_32 <= pack(i_src_a, i_src_b, s_op);
+
     -- 2x 16-bit pack.
     s_res_16(15 downto 0) <= pack(i_src_a(15 downto 0), i_src_b(15 downto 0), s_op);
     s_res_16(31 downto 16) <= pack(i_src_a(31 downto 16), i_src_b(31 downto 16), s_op);
@@ -126,7 +125,6 @@ begin
           s_res_16 when C_PACKED_HALF_WORD,
           s_res_32 when others;
   else generate
-    -- In unpacked mode we only have to consider the 32-bit result.
-    o_result <= s_res_32;
+    o_result <= (others => '0');
   end generate;
 end rtl;
