@@ -34,7 +34,7 @@ The CPU is nearing completion but still under development. The following compone
 * An IEEE 754 compliant(ish) FPU.
   - The following single-cycle FPU instructions are implemented:
     - FMIN, FMAX
-    - FSEQ, FSNE, FSLT, FSLE, FSNAN
+    - FSEQ, FSNE, FSLT, FSLE, FSUNORD, FSORD
   - The following three-cycle FPU instructions are implemented:
     - ITOF, UTOF, FTOI, FTOU, FTOIR, FTOUR
   - The following four-cycle FPU instructions are implemented:

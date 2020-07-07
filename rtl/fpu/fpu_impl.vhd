@@ -26,7 +26,7 @@
 -- Different operations may take different number of cycles to complete.
 --
 -- Single-cycle operations:
---   FSEQ, FSNE, FSLT, FSLE, FSNAN, FMIN, FMAX
+--   FSEQ, FSNE, FSLT, FSLE, FSUNORD, FSORD, FMIN, FMAX
 --
 -- Four-cycle operations:
 --   FADD, FSUB, FMUL
@@ -123,7 +123,8 @@ architecture rtl of fpu_impl is
   signal s_compare_ne : std_logic;
   signal s_compare_lt : std_logic;
   signal s_compare_le : std_logic;
-  signal s_is_any_src_nan : std_logic;
+  signal s_any_src_is_nan : std_logic;
+  signal s_no_src_is_nan : std_logic;
   signal s_set_bit : std_logic;
   signal s_set_res : std_logic_vector(WIDTH-1 downto 0);
 
@@ -168,7 +169,7 @@ begin
 
   DecodeOpMux3: with i_op select
     s_is_compare_op <=
-      '1' when C_FPU_FSEQ | C_FPU_FSNE | C_FPU_FSLT | C_FPU_FSLE | C_FPU_FSNAN,
+      '1' when C_FPU_FSEQ | C_FPU_FSNE | C_FPU_FSLT | C_FPU_FSLE | C_FPU_FSUNORD | C_FPU_FSORD,
       '0' when others;
 
   DecodeOpMux4: with i_op select
@@ -247,14 +248,16 @@ begin
   s_minmax_res <= i_src_a when s_minmax_sel_a = '1' else i_src_b;
 
   -- Compare and set operations.
-  s_is_any_src_nan <= s_props_a.is_nan or s_props_b.is_nan;
+  s_any_src_is_nan <= s_props_a.is_nan or s_props_b.is_nan;
+  s_no_src_is_nan <= (not s_props_a.is_nan) and (not s_props_b.is_nan);
   CmpMux: with i_op select
     s_set_bit <=
       s_compare_eq when C_FPU_FSEQ,
       s_compare_ne when C_FPU_FSNE,
       s_compare_lt when C_FPU_FSLT,
       s_compare_le when C_FPU_FSLE,
-      s_is_any_src_nan when C_FPU_FSNAN,
+      s_any_src_is_nan when C_FPU_FSUNORD,
+      s_no_src_is_nan when C_FPU_FSORD,
       '0' when others;
   s_set_res <= (others => s_set_bit);
 

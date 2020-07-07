@@ -164,7 +164,8 @@ package types is
   constant C_FPU_FSNE : T_FPU_OP := "00011";
   constant C_FPU_FSLT : T_FPU_OP := "00100";
   constant C_FPU_FSLE : T_FPU_OP := "00101";
-  constant C_FPU_FSNAN : T_FPU_OP := "00110";
+  constant C_FPU_FSUNORD : T_FPU_OP := "00110";
+  constant C_FPU_FSORD : T_FPU_OP := "00111";
 
   constant C_FPU_ITOF : T_FPU_OP := "01000";
   constant C_FPU_UTOF : T_FPU_OP := "01001";
