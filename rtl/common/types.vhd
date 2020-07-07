@@ -155,30 +155,33 @@ package types is
   constant C_DIV_FDIV : T_DIV_OP := "100";  -- Special decoding.
 
   -- FPU operations.
-  constant C_FPU_OP_SIZE : integer := 5;
+  constant C_FPU_OP_SIZE : integer := 6;
   subtype T_FPU_OP is std_logic_vector(C_FPU_OP_SIZE-1 downto 0);
 
-  constant C_FPU_FMIN : T_FPU_OP := "00000";
-  constant C_FPU_FMAX : T_FPU_OP := "00001";
-  constant C_FPU_FSEQ : T_FPU_OP := "00010";
-  constant C_FPU_FSNE : T_FPU_OP := "00011";
-  constant C_FPU_FSLT : T_FPU_OP := "00100";
-  constant C_FPU_FSLE : T_FPU_OP := "00101";
-  constant C_FPU_FSUNORD : T_FPU_OP := "00110";
-  constant C_FPU_FSORD : T_FPU_OP := "00111";
+  constant C_FPU_FMIN    : T_FPU_OP := "100000";
+  constant C_FPU_FMAX    : T_FPU_OP := "100001";
+  constant C_FPU_FSEQ    : T_FPU_OP := "100010";
+  constant C_FPU_FSNE    : T_FPU_OP := "100011";
+  constant C_FPU_FSLT    : T_FPU_OP := "100100";
+  constant C_FPU_FSLE    : T_FPU_OP := "100101";
+  constant C_FPU_FSUNORD : T_FPU_OP := "100110";
+  constant C_FPU_FSORD   : T_FPU_OP := "100111";
 
-  constant C_FPU_ITOF : T_FPU_OP := "01000";
-  constant C_FPU_UTOF : T_FPU_OP := "01001";
-  constant C_FPU_FTOI : T_FPU_OP := "01010";
-  constant C_FPU_FTOU : T_FPU_OP := "01011";
-  constant C_FPU_FTOIR : T_FPU_OP := "01100";
-  constant C_FPU_FTOUR : T_FPU_OP := "01101";
-  constant C_FPU_FPACK : T_FPU_OP := "01110";
+  constant C_FPU_ITOF    : T_FPU_OP := "101000";
+  constant C_FPU_UTOF    : T_FPU_OP := "101001";
+  constant C_FPU_FTOI    : T_FPU_OP := "101010";
+  constant C_FPU_FTOU    : T_FPU_OP := "101011";
+  constant C_FPU_FTOIR   : T_FPU_OP := "101100";
+  constant C_FPU_FTOUR   : T_FPU_OP := "101101";
+  constant C_FPU_FPACK   : T_FPU_OP := "101110";
 
-  constant C_FPU_FADD : T_FPU_OP := "10000";
-  constant C_FPU_FSUB : T_FPU_OP := "10001";
-  constant C_FPU_FMUL : T_FPU_OP := "10010";
-  constant C_FPU_FDIV : T_FPU_OP := "10011";  -- Not handled by the FPU!
+  constant C_FPU_FADD    : T_FPU_OP := "110000";
+  constant C_FPU_FSUB    : T_FPU_OP := "110001";
+  constant C_FPU_FMUL    : T_FPU_OP := "110010";
+  constant C_FPU_FDIV    : T_FPU_OP := "110011";  -- Not handled by the FPU!
+
+  constant C_FPU_FUNPL   : T_FPU_OP := "000000";  -- Two-operand (op=0x7d, func=0x00)
+  constant C_FPU_FUNPH   : T_FPU_OP := "000001";  -- Two-operand (op=0x7d, func=0x01)
 
   -- MEM operations.
   constant C_MEM_OP_SIZE : integer := 4;

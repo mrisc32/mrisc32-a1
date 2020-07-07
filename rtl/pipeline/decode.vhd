@@ -158,6 +158,7 @@ architecture rtl of decode is
   signal s_is_addpchi : std_logic;
 
   signal s_is_type_b_alu : std_logic;
+  signal s_is_type_b_fpu : std_logic;
   signal s_func : std_logic_vector(5 downto 0);
 
   -- VL register signals.
@@ -265,15 +266,16 @@ begin
   -- Is this a two-operand operation?
   s_func <= i_instr(14 downto 9) when s_is_type_b = '1' else (others => '0');
   s_is_type_b_alu <= '1' when (s_is_type_b = '1' and s_op_low(1 downto 0) = "00") else '0';
+  s_is_type_b_fpu <= '1' when (s_is_type_b = '1' and s_op_low(1 downto 0) = "01") else '0';
 
   -- Is this FDIV?
-  s_is_fdiv <= '1' when (s_is_type_a = '1' and s_op_low = "11" & C_FPU_FDIV) else '0';
+  s_is_fdiv <= '1' when (s_is_type_a = '1' and s_op_low = "1" & C_FPU_FDIV) else '0';
 
   -- Is this a SAU, MUL, DIV or FPU op?
   s_is_sau_op <= '1' when s_is_type_a = '1' and s_op_low(6 downto 3) = "0111" else '0';
   s_is_mul_op <= '1' when s_is_type_a = '1' and s_op_low(6 downto 2) = "10000" else '0';
   s_is_div_op <= '1' when (s_is_type_a = '1' and s_op_low(6 downto 2) = "10001") or s_is_fdiv = '1' else '0';
-  s_is_fpu_op <= '1' when s_is_type_a = '1' and s_op_low(6 downto 5) = "11" and s_is_fdiv = '0' else '0';
+  s_is_fpu_op <= '1' when s_is_type_a = '1' and s_op_low(6 downto 5) = "11" and s_is_fdiv = '0' else s_is_type_b_fpu;
 
   -- Determine vector mode.
   s_vector_mode(1) <= i_instr(15) and not s_is_type_d;
@@ -469,8 +471,13 @@ begin
               "0" & s_op_low(C_DIV_OP_SIZE-2 downto 0);
 
   -- Select FPU operation.
-  -- Map the low order bits of the low order opcode directly to the FPU.
-  s_fpu_op <= s_op_low(C_FPU_OP_SIZE-1 downto 0);
+  s_fpu_op <=
+      -- We map the two-operand FUNC ID into the opcode for such instructions.
+      s_func when s_is_type_b_fpu = '1' else
+
+      -- Map the low order bits of the low order opcode directly to the FPU.
+      s_op_low(C_FPU_OP_SIZE-1 downto 0);
+
 
   -- Are we missing any fwd operation that has not yet been produced by the pipeline?
   s_missing_fwd_operand <= s_is_vector_op and i_vl_fwd_use_value and not i_vl_fwd_value_ready;

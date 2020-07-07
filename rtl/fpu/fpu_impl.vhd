@@ -86,6 +86,7 @@ architecture rtl of fpu_impl is
   signal s_is_compare_op : std_logic;
   signal s_is_minmax_op : std_logic;
   signal s_is_add_op : std_logic;
+  signal s_is_unpack_op : std_logic;
   signal s_is_mul_op : std_logic;
   signal s_is_fpack_op : std_logic;
   signal s_is_single_cycle_op : std_logic;
@@ -136,6 +137,9 @@ architecture rtl of fpu_impl is
   signal s_minmax_sel_a : std_logic;
   signal s_minmax_res : std_logic_vector(WIDTH-1 downto 0);
 
+  -- Unpack operations.
+  signal s_unpack_res : std_logic_vector(WIDTH-1 downto 0);
+
   -- FADD signals.
   signal s_fadd_enable : std_logic;
   signal s_fadd_subtract : std_logic;
@@ -185,12 +189,17 @@ begin
       '1' when C_FPU_FADD | C_FPU_FSUB,
       '0' when others;
 
+  DecodeOpMux6: with i_op select
+    s_is_unpack_op <=
+      '1' when C_FPU_FUNPL | C_FPU_FUNPH,
+      '0' when others;
+
   s_is_mul_op <= '1' when i_op = C_FPU_FMUL else '0';
 
   s_is_fpack_op <= '1' when i_op = C_FPU_FPACK else '0';
 
   -- Is this a single cycle operation?
-  s_is_single_cycle_op <= s_is_compare_op or s_is_minmax_op;
+  s_is_single_cycle_op <= s_is_compare_op or s_is_minmax_op or s_is_unpack_op;
 
 
   --------------------------------------------------------------------------------------------------
@@ -225,7 +234,7 @@ begin
 
 
   --------------------------------------------------------------------------------------------------
-  -- Single cycle compare/min/max operations.
+  -- Single cycle operations.
   --------------------------------------------------------------------------------------------------
 
   -- Camparison results.
@@ -264,8 +273,36 @@ begin
       '0' when others;
   s_set_res <= (others => s_set_bit);
 
+  -- Unpack results.
+  FUNP_GEN : if CONFIG.HAS_PO and PACKED_WIDTH > 0 generate
+    signal s_is_unpack_high_op : std_logic;
+  begin
+    s_is_unpack_high_op <= '1' when i_op(0) = C_FPU_FUNPH(0) else '0';
+
+    FUNP: entity work.funp
+      generic map (
+        WIDTH => WIDTH,
+        EXP_BITS => EXP_BITS,
+        EXP_BIAS => EXP_BIAS,
+        FRACT_BITS => FRACT_BITS,
+        PACKED_WIDTH => PACKED_WIDTH,
+        PACKED_EXP_BITS => PACKED_EXP_BITS,
+        PACKED_EXP_BIAS => PACKED_EXP_BIAS,
+        PACKED_FRACT_BITS => PACKED_FRACT_BITS
+      )
+      port map (
+        i_input => i_src_a,
+        i_extract_high => s_is_unpack_high_op,
+        o_result => s_unpack_res
+      );
+  else generate
+    s_unpack_res <= (others => '0');
+  end generate;
+
   -- Select the result from the first FPU stage.
-  o_f1_next_result <= s_set_res when s_is_compare_op = '1' else s_minmax_res;
+  o_f1_next_result <= s_set_res when s_is_compare_op = '1' else
+                      s_minmax_res when s_is_minmax_op = '1' else
+                      s_unpack_res;
   o_f1_next_result_ready <= s_is_single_cycle_op and i_enable;
 
 

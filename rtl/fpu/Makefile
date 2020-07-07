@@ -28,6 +28,8 @@ SRCS += \
     $(FPU_PATH)/ftoi.vhd \
     $(FPU_PATH)/itof_clz_and_left_shift.vhd \
     $(FPU_PATH)/itof.vhd \
+    $(FPU_PATH)/funp.vhd \
+    $(FPU_PATH)/fpack.vhd \
     $(FPU_PATH)/fpu_impl.vhd \
     $(FPU_PATH)/fpu.vhd
 
