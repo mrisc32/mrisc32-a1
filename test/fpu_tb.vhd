@@ -180,7 +180,7 @@ begin
         ('1', C_FPU_FSLT, "01",
          X"12345678",
          X"12345679",
-         X"000000FF", '1',
+         X"00000000", '1',  -- Note: LSB:s are NaN:s, so always compare false.
          X"00000000", '0'),
 
         ('1', C_FPU_FSLT, "10",
@@ -217,7 +217,7 @@ begin
         ('1', C_FPU_FSLE, "01",
          X"12345678",
          X"12345679",
-         X"FFFFFFFF", '1',
+         X"FFFFFF00", '1',  -- Note: LSB:s are NaN:s, so always compare false.
          X"00000000", '0'),
 
         ('1', C_FPU_FSLE, "10",
