@@ -41,8 +41,6 @@ SRCS += \
     $(TEST_PATH)/mem_arbiter_tb.vhd \
     $(TEST_PATH)/memory_tb.vhd \
     $(TEST_PATH)/mul_tb.vhd \
-    $(TEST_PATH)/regs_scalar_tb.vhd \
-    $(TEST_PATH)/regs_vector_tb.vhd \
     $(TEST_PATH)/reg_tb.vhd \
     $(TEST_PATH)/sau_tb.vhd \
     $(TEST_PATH)/shift32_tb.vhd \
@@ -70,8 +68,6 @@ TESTS += \
     mem_arbiter_tb \
     memory_tb \
     mul_tb \
-    regs_scalar_tb \
-    regs_vector_tb \
     reg_tb \
     sau_tb \
     shift32_tb \

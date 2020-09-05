@@ -74,13 +74,9 @@ architecture rtl of pipeline is
 
   signal s_id_vl_requested : std_logic;
 
-  signal s_id_next_sreg_a_reg : std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
-  signal s_id_next_sreg_b_reg : std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
-  signal s_id_next_sreg_c_reg : std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
-  signal s_id_next_vreg_a_reg : std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
-  signal s_id_next_vreg_a_element : std_logic_vector(C_LOG2_VEC_REG_ELEMENTS-1 downto 0);
-  signal s_id_next_vreg_b_reg : std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
-  signal s_id_next_vreg_b_element : std_logic_vector(C_LOG2_VEC_REG_ELEMENTS-1 downto 0);
+  signal s_id_next_src_reg_a : T_SRC_REG;
+  signal s_id_next_src_reg_b : T_SRC_REG;
+  signal s_id_next_src_reg_c : T_SRC_REG;
 
   signal s_id_branch_is_branch : std_logic;
   signal s_id_branch_is_unconditional : std_logic;
@@ -308,13 +304,9 @@ begin
       i_wb_is_vector => s_ex4_next_dst_reg.is_vector,
 
       -- To the RF stage (async).
-      o_next_sreg_a_reg => s_id_next_sreg_a_reg,
-      o_next_sreg_b_reg => s_id_next_sreg_b_reg,
-      o_next_sreg_c_reg => s_id_next_sreg_c_reg,
-      o_next_vreg_a_reg => s_id_next_vreg_a_reg,
-      o_next_vreg_a_element => s_id_next_vreg_a_element,
-      o_next_vreg_b_reg => s_id_next_vreg_b_reg,
-      o_next_vreg_b_element => s_id_next_vreg_b_element,
+      o_next_src_reg_a => s_id_next_src_reg_a,
+      o_next_src_reg_b => s_id_next_src_reg_b,
+      o_next_src_reg_c => s_id_next_src_reg_c,
 
       -- To the RF stage (sync).
       o_branch_is_branch => s_id_branch_is_branch,
@@ -372,13 +364,9 @@ begin
       i_if_pc => s_if_pc,
 
       -- From the ID stage (async).
-      i_next_sreg_a_reg => s_id_next_sreg_a_reg,
-      i_next_sreg_b_reg => s_id_next_sreg_b_reg,
-      i_next_sreg_c_reg => s_id_next_sreg_c_reg,
-      i_next_vreg_a_reg => s_id_next_vreg_a_reg,
-      i_next_vreg_a_element => s_id_next_vreg_a_element,
-      i_next_vreg_b_reg => s_id_next_vreg_b_reg,
-      i_next_vreg_b_element => s_id_next_vreg_b_element,
+      i_next_src_reg_a => s_id_next_src_reg_a,
+      i_next_src_reg_b => s_id_next_src_reg_b,
+      i_next_src_reg_c => s_id_next_src_reg_c,
 
       -- From the ID stage (sync).
       i_branch_is_branch => s_id_branch_is_branch,
@@ -434,10 +422,7 @@ begin
 
       -- WB data from the EX4 stage (async).
       i_wb_data_w => s_ex4_next_result,
-      i_wb_we => s_ex4_next_dst_reg.is_target,
-      i_wb_sel_w => s_ex4_next_dst_reg.reg,
-      i_wb_element_w => s_ex4_next_dst_reg.element,
-      i_wb_is_vector => s_ex4_next_dst_reg.is_vector,
+      i_wb_dst_reg => s_ex4_next_dst_reg,
 
       -- Branch results to the EX1 stage (sync).
       o_branch_is_branch => s_rf_branch_is_branch,

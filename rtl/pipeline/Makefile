@@ -21,8 +21,7 @@ PIPELINE_PATH = rtl/pipeline
 
 SRCS += \
     $(PIPELINE_PATH)/reg.vhd \
-    $(PIPELINE_PATH)/regs_scalar.vhd \
-    $(PIPELINE_PATH)/regs_vector.vhd \
+    $(PIPELINE_PATH)/register_file.vhd \
     $(PIPELINE_PATH)/vector_control.vhd \
     $(PIPELINE_PATH)/pc_plus_4.vhd \
     $(PIPELINE_PATH)/pc_plus_offset.vhd \

@@ -59,13 +59,9 @@ entity decode is
     i_wb_is_vector : in std_logic;
 
     -- To the RF stage (async).
-    o_next_sreg_a_reg : out std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
-    o_next_sreg_b_reg : out std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
-    o_next_sreg_c_reg : out std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
-    o_next_vreg_a_reg : out std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
-    o_next_vreg_a_element : out std_logic_vector(C_LOG2_VEC_REG_ELEMENTS-1 downto 0);
-    o_next_vreg_b_reg : out std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
-    o_next_vreg_b_element : out std_logic_vector(C_LOG2_VEC_REG_ELEMENTS-1 downto 0);
+    o_next_src_reg_a : out T_SRC_REG;
+    o_next_src_reg_b : out T_SRC_REG;
+    o_next_src_reg_c : out T_SRC_REG;
 
     -- To the RF stage (sync).
     o_branch_is_branch : out std_logic;
@@ -132,6 +128,10 @@ architecture rtl of decode is
   signal s_is_first_vector_op_cycle : std_logic;
   signal s_address_offset_is_stride : std_logic;
   signal s_bubble_from_vector_op : std_logic;
+
+  signal s_next_src_reg_a : T_SRC_REG;
+  signal s_next_src_reg_b : T_SRC_REG;
+  signal s_next_src_reg_c : T_SRC_REG;
 
   signal s_packed_mode : T_PACKED_MODE;
 
@@ -301,6 +301,16 @@ begin
   -- Is this a stride offset or regular offset memory addressing mode instruction?
   s_address_offset_is_stride <= s_is_vector_stride_mem_op;
 
+  -- Define the source register operands.
+  s_next_src_reg_a.reg <= s_reg_a;
+  s_next_src_reg_a.element <= s_element_a;
+  s_next_src_reg_a.is_vector <= s_reg_a_is_vector;
+  s_next_src_reg_b.reg <= s_reg_b;
+  s_next_src_reg_b.element <= s_element_b;
+  s_next_src_reg_b.is_vector <= s_reg_b_is_vector;
+  s_next_src_reg_c.reg <= s_reg_c;
+  s_next_src_reg_c.element <= s_element_c;
+  s_next_src_reg_c.is_vector <= s_reg_c_is_vector;
 
   --------------------------------------------------------------------------------------------------
   -- Vector control logic.
@@ -501,16 +511,10 @@ begin
   s_fpu_en_masked <= s_fpu_en and not s_bubble;
   s_is_branch_masked <= s_is_branch and not s_bubble;
 
-  -- Select register numbers for the read ports (async signals to RF).
-  o_next_sreg_a_reg <= s_reg_a;
-  o_next_sreg_b_reg <= s_reg_b;
-  o_next_sreg_c_reg <= s_reg_c;
-
-  -- Note: We remap vector register ports for memory operations.
-  o_next_vreg_a_reg <= s_reg_c when s_mem_en = '1' else s_reg_a;
-  o_next_vreg_a_element <= s_element_c when s_mem_en = '1' else s_element_a;
-  o_next_vreg_b_reg <= s_reg_b;
-  o_next_vreg_b_element <= s_element_b;
+  -- Outputs to the RF stage (async).
+  o_next_src_reg_a <= s_next_src_reg_a;
+  o_next_src_reg_b <= s_next_src_reg_b;
+  o_next_src_reg_c <= s_next_src_reg_c;
 
   -- Outputs to the RF stage (sync).
   process(i_clk, i_rst)
@@ -573,15 +577,9 @@ begin
         o_imm <= s_imm;
         o_is_first_vector_op_cycle <= s_is_first_vector_op_cycle;
         o_address_offset_is_stride <= s_address_offset_is_stride;
-        o_src_reg_a.reg <= s_reg_a;
-        o_src_reg_a.element <= s_element_a;
-        o_src_reg_a.is_vector <= s_reg_a_is_vector;
-        o_src_reg_b.reg <= s_reg_b;
-        o_src_reg_b.element <= s_element_b;
-        o_src_reg_b.is_vector <= s_reg_b_is_vector;
-        o_src_reg_c.reg <= s_reg_c;
-        o_src_reg_c.element <= s_element_c;
-        o_src_reg_c.is_vector <= s_reg_c_is_vector;
+        o_src_reg_a <= s_next_src_reg_a;
+        o_src_reg_b <= s_next_src_reg_b;
+        o_src_reg_c <= s_next_src_reg_c;
         o_dst_reg <= s_dst_reg_masked;
         o_packed_mode <= s_packed_mode;
         o_alu_op <= s_alu_op_masked;
