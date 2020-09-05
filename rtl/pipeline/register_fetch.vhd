@@ -49,13 +49,9 @@ entity register_fetch is
     i_if_pc : in std_logic_vector(C_WORD_SIZE-1 downto 0);
 
     -- From the ID stage (async).
-    i_next_sreg_a_reg : in std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
-    i_next_sreg_b_reg : in std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
-    i_next_sreg_c_reg : in std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
-    i_next_vreg_a_reg : in std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
-    i_next_vreg_a_element : in std_logic_vector(C_LOG2_VEC_REG_ELEMENTS-1 downto 0);
-    i_next_vreg_b_reg : in std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
-    i_next_vreg_b_element : in std_logic_vector(C_LOG2_VEC_REG_ELEMENTS-1 downto 0);
+    i_next_src_reg_a : in T_SRC_REG;
+    i_next_src_reg_b : in T_SRC_REG;
+    i_next_src_reg_c : in T_SRC_REG;
 
     -- From the ID stage (sync).
     i_branch_is_branch : in std_logic;
@@ -109,12 +105,9 @@ entity register_fetch is
     i_reg_c_fwd_use_value : in std_logic;
     i_reg_c_fwd_value_ready : in std_logic;
 
-    -- WB data from the EX3 stage (async).
+    -- WB data from the EX4 stage (async).
     i_wb_data_w : in std_logic_vector(C_WORD_SIZE-1 downto 0);
-    i_wb_we : in std_logic;
-    i_wb_sel_w : in std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
-    i_wb_element_w : in std_logic_vector(C_LOG2_VEC_REG_ELEMENTS-1 downto 0);
-    i_wb_is_vector : in std_logic;
+    i_wb_dst_reg : in T_DST_REG;
 
     -- Branch results to the EX1 stage (sync).
     o_branch_is_branch : out std_logic;
@@ -157,18 +150,6 @@ architecture rtl of register_fetch is
   signal s_branch_pc_plus_4 : std_logic_vector(C_WORD_SIZE-1 downto 0);
 
   signal s_stall_register_read_ports : std_logic;
-
-  -- Scalar register signals.
-  signal s_scalar_we : std_logic;
-  signal s_sreg_a_data : std_logic_vector(C_WORD_SIZE-1 downto 0);
-  signal s_sreg_b_data : std_logic_vector(C_WORD_SIZE-1 downto 0);
-  signal s_sreg_c_data : std_logic_vector(C_WORD_SIZE-1 downto 0);
-
-  -- Vector register signals.
-  signal s_vector_we : std_logic;
-  signal s_vreg_a_data : std_logic_vector(C_WORD_SIZE-1 downto 0);
-  signal s_vreg_b_data : std_logic_vector(C_WORD_SIZE-1 downto 0);
-  signal s_vreg_c_data : std_logic_vector(C_WORD_SIZE-1 downto 0);
 
   -- Selected register values (scalar or vector).
   signal s_reg_a_data : std_logic_vector(C_WORD_SIZE-1 downto 0);
@@ -244,59 +225,25 @@ begin
   -- pipeline stage output registers.
   s_stall_register_read_ports <= i_stall_id;
 
-  -- Instantiate the scalar register file.
-  s_scalar_we <= i_wb_we and not i_wb_is_vector;
-  regs_scalar_1: entity work.regs_scalar
+  -- Instantiate the combined scalar & vector register file.
+  register_file_1: entity work.register_file
+    generic map (
+      ENABLE_VECTOR_REGISTERS => CONFIG.HAS_VEC
+    )
     port map (
       i_clk => i_clk,
       i_rst => i_rst,
       i_stall_read_ports => s_stall_register_read_ports,
-      i_sel_a => i_next_sreg_a_reg,
-      i_sel_b => i_next_sreg_b_reg,
-      i_sel_c => i_next_sreg_c_reg,
-      o_data_a => s_sreg_a_data,
-      o_data_b => s_sreg_b_data,
-      o_data_c => s_sreg_c_data,
-      i_we => s_scalar_we,
+      i_rd_port_a => i_next_src_reg_a,
+      i_rd_port_b => i_next_src_reg_b,
+      i_rd_port_c => i_next_src_reg_c,
+      o_data_a => s_reg_a_data,
+      o_data_b => s_reg_b_data,
+      o_data_c => s_reg_c_data,
+      i_wr_port => i_wb_dst_reg,
       i_data_w => i_wb_data_w,
-      i_sel_w => i_wb_sel_w,
       i_pc => i_pc
     );
-
-  -- Instantiate the vector register file.
-  VREG_GEN: if CONFIG.HAS_VEC generate
-    s_vector_we <= i_wb_we and i_wb_is_vector;
-    regs_vector_1: entity work.regs_vector
-      generic map (
-        CONFIG => CONFIG
-      )
-      port map (
-        i_clk => i_clk,
-        i_rst => i_rst,
-        i_stall_read_ports => s_stall_register_read_ports,
-        i_sel_a => i_next_vreg_a_reg,
-        i_element_a => i_next_vreg_a_element,
-        i_sel_b => i_next_vreg_b_reg,
-        i_element_b => i_next_vreg_b_element,
-        o_data_a => s_vreg_a_data,
-        o_data_b => s_vreg_b_data,
-        i_we => s_vector_we,
-        i_data_w => i_wb_data_w,
-        i_sel_w => i_wb_sel_w,
-        i_element_w => i_wb_element_w
-      );
-  else generate
-    s_vreg_a_data <= (others => '0');
-    s_vreg_b_data <= (others => '0');
-  end generate;
-
-  -- Note: We reuse the A read port of the vector register file for the C register.
-  s_vreg_c_data <= s_vreg_a_data;
-
-  -- Select the register data to use (scalar vs vector).
-  s_reg_a_data <= s_vreg_a_data when i_src_reg_a.is_vector = '1' else s_sreg_a_data;
-  s_reg_b_data <= s_vreg_b_data when i_src_reg_b.is_vector = '1' else s_sreg_b_data;
-  s_reg_c_data <= s_vreg_c_data when i_src_reg_c.is_vector = '1' else s_sreg_c_data;
 
 
   --------------------------------------------------------------------------------------------------
