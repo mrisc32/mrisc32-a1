@@ -30,8 +30,9 @@ use ieee.numeric_std.all;
 
 entity ram_dual_port is
   generic(
-    WIDTH : positive := 32;
-    ADDR_BITS : positive := 10
+    WIDTH : positive;
+    ADDR_BITS : positive;
+    PREFER_DISTRIBUTED : boolean := false  -- Prefer distributed RAM (logic cells) instead of BRAM
   );
   port(
     i_clk: in std_logic;
@@ -44,10 +45,36 @@ entity ram_dual_port is
 end ram_dual_port;
 
 architecture rtl of ram_dual_port is
-  constant C_NUM_WORDS : positive := 2**ADDR_BITS;
+  function get_intel_ram_style return string is
+  begin
+    if PREFER_DISTRIBUTED then
+      return "MLAB";
+    end if;
+    return "";
+  end function;
 
-  type T_RAM_BLOC is array (0 to C_NUM_WORDS-1) of std_logic_vector(WIDTH-1 downto 0);
-  signal ram_block : T_RAM_BLOC;
+  function get_xilinx_ram_style return string is
+  begin
+    if PREFER_DISTRIBUTED then
+      return "distributed";
+    end if;
+    return "auto";
+  end function;
+
+  constant C_NUM_WORDS : positive := 2**ADDR_BITS;
+  constant C_INTEL_RAM_STYLE : string := get_intel_ram_style;
+  constant C_XILINX_RAM_STYLE : string := get_xilinx_ram_style;
+
+  type T_RAM_BLOCK is array (0 to C_NUM_WORDS-1) of std_logic_vector(WIDTH-1 downto 0);
+  signal s_ram_block : T_RAM_BLOCK;
+
+  -- Intel/Altera attributes.
+  attribute RAMSTYLE : string;
+  attribute RAMSTYLE of s_ram_block : signal is C_INTEL_RAM_STYLE;
+
+  -- Xilinx attributes.
+  attribute RAM_STYLE : string;
+  attribute RAM_STYLE of s_ram_block : signal is C_XILINX_RAM_STYLE;
 begin
   process(i_clk)
     variable v_write_addr : integer range 0 to C_NUM_WORDS-1;
@@ -56,10 +83,10 @@ begin
     if rising_edge(i_clk) then
       if i_we = '1' then
         v_write_addr := to_integer(unsigned(i_write_addr));
-        ram_block(v_write_addr) <= i_write_data;
+        s_ram_block(v_write_addr) <= i_write_data;
       end if;
       v_read_addr := to_integer(unsigned(i_read_addr));
-      o_read_data <= ram_block(v_read_addr);
+      o_read_data <= s_ram_block(v_read_addr);
     end if;
   end process;
 end rtl;
