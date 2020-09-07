@@ -117,6 +117,7 @@ package types is
   constant C_ALU_LSL    : T_ALU_OP := "100010";
   constant C_ALU_LSR    : T_ALU_OP := "100011";
   constant C_ALU_SHUF   : T_ALU_OP := "100100";
+  constant C_ALU_SEL    : T_ALU_OP := "100101";
 
   constant C_ALU_PACK   : T_ALU_OP := "110000";
   constant C_ALU_PACKS  : T_ALU_OP := "110001";

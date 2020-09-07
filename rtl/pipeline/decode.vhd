@@ -146,6 +146,9 @@ architecture rtl of decode is
   signal s_is_mem_op : std_logic;
   signal s_is_mem_store : std_logic;
 
+  signal s_is_sel : std_logic;
+  signal s_is_three_src_op : std_logic;
+
   signal s_is_fdiv : std_logic;
   signal s_is_sau_op : std_logic;
   signal s_is_mul_op : std_logic;
@@ -268,6 +271,11 @@ begin
   s_is_type_b_alu <= '1' when (s_is_type_b = '1' and s_op_low(1 downto 0) = "00") else '0';
   s_is_type_b_fpu <= '1' when (s_is_type_b = '1' and s_op_low(1 downto 0) = "01") else '0';
 
+  -- Is this an operation with three source operands?
+  s_is_sel <= '1' when (s_is_type_a = '1' and s_op_low = "0" & C_ALU_SEL) or
+                       (s_is_type_c = '1' and s_op_high = C_ALU_SEL) else '0';
+  s_is_three_src_op <= s_is_mem_store or s_is_sel;
+
   -- Is this FDIV?
   s_is_fdiv <= '1' when (s_is_type_a = '1' and s_op_low = "1" & C_FPU_FDIV) else '0';
 
@@ -296,7 +304,7 @@ begin
   -- What source registers are required for this operation?
   s_reg_a_required <= s_is_type_a or s_is_type_b or s_is_type_c;
   s_reg_b_required <= s_is_type_a;
-  s_reg_c_required <= s_is_mem_store or s_is_branch;
+  s_reg_c_required <= s_is_three_src_op or s_is_branch;
 
   -- Is this a stride offset or regular offset memory addressing mode instruction?
   s_address_offset_is_stride <= s_is_vector_stride_mem_op;

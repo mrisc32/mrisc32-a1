@@ -31,6 +31,7 @@ entity alu is
     i_op : in T_ALU_OP;                                      -- Operation
     i_src_a : in std_logic_vector(C_WORD_SIZE-1 downto 0);   -- Source operand A
     i_src_b : in std_logic_vector(C_WORD_SIZE-1 downto 0);   -- Source operand B
+    i_src_c : in std_logic_vector(C_WORD_SIZE-1 downto 0);   -- Source operand C
     i_packed_mode : in T_PACKED_MODE;                        -- Packed mode
     o_result : out std_logic_vector(C_WORD_SIZE-1 downto 0)  -- ALU result
   );
@@ -50,6 +51,7 @@ architecture rtl of alu is
   signal s_minu_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_maxu_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_shuf_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
+  signal s_sel_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_rev_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_pack_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_ldli_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
@@ -117,6 +119,16 @@ begin
       i_src_a => i_src_a,
       i_src_b => i_src_b,
       o_result => s_shuf_res
+    );
+
+  -- C_ALU_SEL
+  AluSEL32: entity work.sel32
+    port map (
+      i_src_a => i_src_a,
+      i_src_b => i_src_b,
+      i_src_c => i_src_c,
+      i_packed_mode => i_packed_mode,
+      o_result => s_sel_res
     );
 
   -- C_ALU_REV
@@ -280,6 +292,7 @@ begin
         s_maxu_res when C_ALU_MAXU,
         s_shifter_res when C_ALU_LSR | C_ALU_ASR | C_ALU_LSL,
         s_shuf_res when C_ALU_SHUF,
+        s_sel_res when C_ALU_SEL,
         s_clz_res when C_ALU_CLZ,
         s_rev_res when C_ALU_REV,
         s_pack_res when C_ALU_PACK | C_ALU_PACKS | C_ALU_PACKSU,
