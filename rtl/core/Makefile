@@ -21,6 +21,8 @@ CORE_PATH = rtl/core
 
 SRCS += \
     $(CORE_PATH)/icache.vhd \
+    $(CORE_PATH)/dcache.vhd \
+    $(CORE_PATH)/core.vhd \
     $(CORE_PATH)/mem_arbiter.vhd \
-    $(CORE_PATH)/core.vhd
+    $(CORE_PATH)/core_1mem.vhd
 

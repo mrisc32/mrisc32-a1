@@ -18,7 +18,10 @@
 ----------------------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------------------
--- This is a single CPU core, including the pipeline and caches.
+-- This is a single CPU core, including the pipeline and L1 caches.
+--
+-- The core exposes two memory interfaces: one for instruction memory and one for data memory, in
+-- a Harvard architecture fashion.
 ----------------------------------------------------------------------------------------------------
 
 library ieee;
@@ -35,17 +38,26 @@ entity core is
     i_clk : in std_logic;
     i_rst : in std_logic;
 
-    -- Memory interface to the outside world (Wishbone B4 pipelined master).
-    o_wb_cyc : out std_logic;
-    o_wb_stb : out std_logic;
-    o_wb_adr : out std_logic_vector(C_WORD_SIZE-1 downto 2);
-    o_wb_dat : out std_logic_vector(C_WORD_SIZE-1 downto 0);
-    o_wb_we : out std_logic;
-    o_wb_sel : out std_logic_vector(C_WORD_SIZE/8-1 downto 0);
-    i_wb_dat : in std_logic_vector(C_WORD_SIZE-1 downto 0);
-    i_wb_ack : in std_logic;
-    i_wb_stall : in std_logic;
-    i_wb_err : in std_logic;
+    -- Instruction memory interface (Wishbone B4 pipelined master).
+    o_imem_cyc : out std_logic;
+    o_imem_stb : out std_logic;
+    o_imem_adr : out std_logic_vector(C_WORD_SIZE-1 downto 2);
+    i_imem_dat : in std_logic_vector(C_WORD_SIZE-1 downto 0);
+    i_imem_ack : in std_logic;
+    i_imem_stall : in std_logic;
+    i_imem_err : in std_logic;
+
+    -- Data memory interface (Wishbone B4 pipelined master).
+    o_dmem_cyc : out std_logic;
+    o_dmem_stb : out std_logic;
+    o_dmem_adr : out std_logic_vector(C_WORD_SIZE-1 downto 2);
+    o_dmem_dat : out std_logic_vector(C_WORD_SIZE-1 downto 0);
+    o_dmem_we : out std_logic;
+    o_dmem_sel : out std_logic_vector(C_WORD_SIZE/8-1 downto 0);
+    i_dmem_dat : in std_logic_vector(C_WORD_SIZE-1 downto 0);
+    i_dmem_ack : in std_logic;
+    i_dmem_stall : in std_logic;
+    i_dmem_err : in std_logic;
 
     -- Debug trace interface.
     o_debug_trace : out T_DEBUG_TRACE
@@ -73,15 +85,6 @@ architecture rtl of core is
   signal s_data_ack : std_logic;
   signal s_data_stall : std_logic;
   signal s_data_err : std_logic;
-
-  -- ICache bus master signals.
-  signal s_icache_cyc : std_logic;
-  signal s_icache_stb : std_logic;
-  signal s_icache_adr : std_logic_vector(C_WORD_SIZE-1 downto 2);
-  signal s_icache_dat : std_logic_vector(C_WORD_SIZE-1 downto 0);
-  signal s_icache_ack : std_logic;
-  signal s_icache_stall : std_logic;
-  signal s_icache_err : std_logic;
 begin
   --------------------------------------------------------------------------------------------------
   -- Pipeline.
@@ -122,10 +125,11 @@ begin
 
 
   --------------------------------------------------------------------------------------------------
-  -- Caches and memory interface.
+  -- Caches.
   --------------------------------------------------------------------------------------------------
 
-  icache_1: entity work.icache
+  -- Instruction L1 cache.
+  l1i: entity work.icache
     generic map(
       CONFIG => CONFIG
     )
@@ -133,6 +137,7 @@ begin
       i_clk => i_clk,
       i_rst => i_rst,
 
+      -- From instruction fetch.
       i_instr_cyc => s_instr_cyc,
       i_instr_stb => s_instr_stb,
       i_instr_adr => s_instr_adr,
@@ -141,48 +146,48 @@ begin
       o_instr_stall => s_instr_stall,
       o_instr_err => s_instr_err,
 
-      o_mem_cyc => s_icache_cyc,
-      o_mem_stb => s_icache_stb,
-      o_mem_adr => s_icache_adr,
-      i_mem_dat => s_icache_dat,
-      i_mem_ack => s_icache_ack,
-      i_mem_stall => s_icache_stall,
-      i_mem_err => s_icache_err
+      -- To external memory.
+      o_mem_cyc => o_imem_cyc,
+      o_mem_stb => o_imem_stb,
+      o_mem_adr => o_imem_adr,
+      i_mem_dat => i_imem_dat,
+      i_mem_ack => i_imem_ack,
+      i_mem_stall => i_imem_stall,
+      i_mem_err => i_imem_err
     );
 
-  mem_arbiter_1: entity work.mem_arbiter
+  -- Data L1 cache.
+  l1d: entity work.dcache
+    generic map(
+      CONFIG => CONFIG
+    )
     port map (
       i_clk => i_clk,
       i_rst => i_rst,
 
-      i_instr_cyc => s_icache_cyc,
-      i_instr_stb => s_icache_stb,
-      i_instr_adr => s_icache_adr,
-      o_instr_dat => s_icache_dat,
-      o_instr_ack => s_icache_ack,
-      o_instr_stall => s_icache_stall,
-      o_instr_err => s_icache_err,
-
+      -- From data.
       i_data_cyc => s_data_cyc,
       i_data_stb => s_data_stb,
+      i_data_adr => s_data_adr,
+      i_data_dat => s_data_dat_w,
       i_data_we => s_data_we,
       i_data_sel => s_data_sel,
-      i_data_adr => s_data_adr,
-      i_data_dat_w => s_data_dat_w,
       o_data_dat => s_data_dat,
       o_data_ack => s_data_ack,
       o_data_stall => s_data_stall,
       o_data_err => s_data_err,
 
-      o_mem_cyc => o_wb_cyc,
-      o_mem_stb => o_wb_stb,
-      o_mem_we => o_wb_we,
-      o_mem_sel => o_wb_sel,
-      o_mem_adr => o_wb_adr,
-      o_mem_dat_w => o_wb_dat,
-      i_mem_dat => i_wb_dat,
-      i_mem_ack => i_wb_ack,
-      i_mem_stall => i_wb_stall,
-      i_mem_err => i_wb_err
+      -- To external memory.
+      o_mem_cyc => o_dmem_cyc,
+      o_mem_stb => o_dmem_stb,
+      o_mem_adr => o_dmem_adr,
+      o_mem_dat => o_dmem_dat,
+      o_mem_we => o_dmem_we,
+      o_mem_sel => o_dmem_sel,
+      i_mem_dat => i_dmem_dat,
+      i_mem_ack => i_dmem_ack,
+      i_mem_stall => i_dmem_stall,
+      i_mem_err => i_dmem_err
     );
+
 end rtl;
