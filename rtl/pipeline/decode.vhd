@@ -207,6 +207,41 @@ architecture rtl of decode is
   signal s_div_en_masked : std_logic;
   signal s_fpu_en_masked : std_logic;
   signal s_is_branch_masked : std_logic;
+
+  function decode_immediate(instr : std_logic_vector; is_type_d : std_logic) return std_logic_vector is
+    variable v_result : std_logic_vector(C_WORD_SIZE-1 downto 0);
+  begin
+    if is_type_d = '1' then
+      -- Type D immediate value: sign extended 21-bit value.
+      if instr(20) = '1' then
+        v_result(31 downto 21) := "11111111111";
+      else
+        v_result(31 downto 21) := "00000000000";
+      end if;
+      v_result(20 downto 0) := instr(20 downto 0);
+    else
+      -- Type C immediate value: hi/lo 14-bit value.
+      if instr(14) = '0' then
+        -- Low 14 bits: sign extended 14-bit value.
+        if instr(13) = '1' then
+          v_result(31 downto 14) := "111111111111111111";
+        else
+          v_result(31 downto 14) := "000000000000000000";
+        end if;
+        v_result(13 downto 0) := instr(13 downto 0);
+      else
+        -- High 14 bits, with lowest 18 bits filled with the LSB of the immediate value.
+        v_result(31 downto 18) := instr(13 downto 0);
+        if instr(0) = '1' then
+          v_result(17 downto 0) := "111111111111111111";
+        else
+          v_result(17 downto 0) := "000000000000000000";
+        end if;
+      end if;
+    end if;
+    return v_result;
+  end function;
+
 begin
   -- Should the current instruction be canceled?
   process(i_clk, i_rst)
@@ -240,9 +275,7 @@ begin
   s_is_type_d <= '1' when s_op_high(5 downto 4) = "11" else '0';
 
   -- Extract immediate.
-  s_imm_from_instr(14 downto 0) <= i_instr(14 downto 0);
-  s_imm_from_instr(20 downto 15) <= i_instr(20 downto 15) when s_is_type_d = '1' else (others => i_instr(14));
-  s_imm_from_instr(31 downto 21) <= (others => s_imm_from_instr(20));
+  s_imm_from_instr <= decode_immediate(i_instr, s_is_type_d);
 
   -- Extract register numbers.
   s_reg_a <= i_instr(20 downto 16);
