@@ -59,6 +59,7 @@ architecture rtl of alu is
   signal s_ldhio_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_addhi_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_clz_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
+  signal s_popcnt_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
 
   -- Signals for the packer.
   signal s_pack_is_saturated : std_logic;
@@ -186,6 +187,16 @@ begin
       o_result => s_clz_res
     );
 
+  -- C_ALU_POPCNT
+  AluPOPCNT32: entity work.popcnt32
+    generic map (
+      CONFIG => CONFIG
+    )
+    port map (
+      i_src => i_src_a,
+      i_packed_mode => i_packed_mode,
+      o_result => s_popcnt_res
+    );
 
   ------------------------------------------------------------------------------------------------
   -- Arithmetic operations
@@ -294,6 +305,7 @@ begin
         s_shuf_res when C_ALU_SHUF,
         s_sel_res when C_ALU_SEL,
         s_clz_res when C_ALU_CLZ,
+        s_popcnt_res when C_ALU_POPCNT,
         s_rev_res when C_ALU_REV,
         s_pack_res when C_ALU_PACK | C_ALU_PACKS | C_ALU_PACKSU,
         s_ldli_res when C_ALU_LDLI,

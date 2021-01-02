@@ -25,6 +25,7 @@ SRCS += \
     $(ALU_PATH)/cmp32.vhd \
     $(ALU_PATH)/cpuid.vhd \
     $(ALU_PATH)/pack32.vhd \
+    $(ALU_PATH)/popcnt32.vhd \
     $(ALU_PATH)/rev32.vhd \
     $(ALU_PATH)/sel32.vhd \
     $(ALU_PATH)/shift32.vhd \

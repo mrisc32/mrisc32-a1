@@ -92,7 +92,8 @@ package types is
   constant C_ALU_ADDHI  : T_ALU_OP := "000100";
 
   constant C_ALU_CLZ    : T_ALU_OP := "001000";  -- Two-operand (op=0x7c, func=0x00)
-  constant C_ALU_REV    : T_ALU_OP := "001001";  -- Two-operand (op=0x7c, func=0x01)
+  constant C_ALU_POPCNT : T_ALU_OP := "001001";  -- Two-operand (op=0x7c, func=0x01)
+  constant C_ALU_REV    : T_ALU_OP := "001010";  -- Two-operand (op=0x7c, func=0x02)
 
   constant C_ALU_OR     : T_ALU_OP := "010000";
   constant C_ALU_NOR    : T_ALU_OP := "010001";
