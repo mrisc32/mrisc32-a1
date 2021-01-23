@@ -56,7 +56,6 @@ architecture rtl of alu is
   signal s_pack_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_ldli_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_ldhi_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
-  signal s_ldhio_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_addhi_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_clz_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_popcnt_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
@@ -73,6 +72,9 @@ architecture rtl of alu is
   signal s_shift_is_right : std_logic;
   signal s_shift_is_arithmetic : std_logic;
   signal s_shifter_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
+
+  -- Signals for 21-bit high immediate operations.
+  signal s_src_b_as_imm21hi : std_logic_vector(C_WORD_SIZE-1 downto 0);
 
 begin
   ------------------------------------------------------------------------------------------------
@@ -169,13 +171,6 @@ begin
       o_result => s_pack_res
     );
 
-  -- C_ALU_LDLI, C_ALU_LDHI, C_ALU_LDHIO
-  s_ldli_res <= i_src_b;
-  s_ldhi_res(C_WORD_SIZE-1 downto C_WORD_SIZE-21) <= i_src_b(20 downto 0);
-  s_ldhi_res(C_WORD_SIZE-22 downto 0) <= (others => '0');
-  s_ldhio_res(C_WORD_SIZE-1 downto C_WORD_SIZE-21) <= i_src_b(20 downto 0);
-  s_ldhio_res(C_WORD_SIZE-22 downto 0) <= (others => '1');
-
   -- C_ALU_CLZ
   AluCLZ32: entity work.clz32
     generic map (
@@ -242,14 +237,6 @@ begin
       o_maxu_res => s_maxu_res
     );
 
-  -- Add high immediate (C_ALU_ADDHI): Add lower 21 bits of src_b to upper 21 bits of src_a.
-  s_addhi_res(C_WORD_SIZE-1 downto C_WORD_SIZE-21) <=
-      std_logic_vector(
-          unsigned(i_src_b(20 downto 0)) + unsigned(i_src_a(C_WORD_SIZE-1 downto C_WORD_SIZE-21))
-      );
-  s_addhi_res(C_WORD_SIZE-22 downto 0) <= i_src_a(C_WORD_SIZE-22 downto 0);
-
-
   ------------------------------------------------------------------------------------------------
   -- Shift operations
   ------------------------------------------------------------------------------------------------
@@ -281,6 +268,21 @@ begin
       o_result => s_shifter_res
     );
 
+  ------------------------------------------------------------------------------------------------
+  -- 21-bit immediate operations
+  ------------------------------------------------------------------------------------------------
+
+  -- Expand 21-bit immediate according to LDHI/ADDPCHI semantics.
+  s_src_b_as_imm21hi(C_WORD_SIZE-1 downto C_WORD_SIZE-21) <= i_src_b(20 downto 0);
+  s_src_b_as_imm21hi(C_WORD_SIZE-22 downto 0) <= (others => i_src_b(0));
+
+  -- C_ALU_LDLI, C_ALU_LDHI
+  s_ldli_res <= i_src_b;
+  s_ldhi_res <= s_src_b_as_imm21hi;
+
+  -- Add high immediate (C_ALU_ADDHI)
+  s_addhi_res <= std_logic_vector(unsigned(i_src_a) + unsigned(s_src_b_as_imm21hi));
+
 
   ------------------------------------------------------------------------------------------------
   -- Select the output.
@@ -310,7 +312,6 @@ begin
         s_pack_res when C_ALU_PACK | C_ALU_PACKS | C_ALU_PACKSU,
         s_ldli_res when C_ALU_LDLI,
         s_ldhi_res when C_ALU_LDHI,
-        s_ldhio_res when C_ALU_LDHIO,
         s_addhi_res when C_ALU_ADDHI,
         (others => '-') when others;
 

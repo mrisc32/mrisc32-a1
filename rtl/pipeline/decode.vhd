@@ -157,7 +157,6 @@ architecture rtl of decode is
 
   signal s_is_ldli : std_logic;
   signal s_is_ldhi : std_logic;
-  signal s_is_ldhio : std_logic;
   signal s_is_addpchi : std_logic;
 
   signal s_is_type_b_alu : std_logic;
@@ -296,7 +295,6 @@ begin
   -- Is this an immediate load?
   s_is_ldli    <= '1' when s_op_high = 6X"3a" else '0';
   s_is_ldhi    <= '1' when s_op_high = 6X"3b" else '0';
-  s_is_ldhio   <= '1' when s_op_high = 6X"3c" else '0';
   s_is_addpchi <= '1' when s_op_high = 6X"3d" else '0';
 
   -- Is this a two-operand operation?
@@ -487,9 +485,6 @@ begin
 
       -- LDHI has a special ALU op.
       C_ALU_LDHI when s_is_ldhi = '1' else
-
-      -- LDHIO has a special ALU op.
-      C_ALU_LDHIO when s_is_ldhio = '1' else
 
       -- ADDPCHI has a special ALU op.
       C_ALU_ADDHI when s_is_addpchi = '1' else

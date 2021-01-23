@@ -88,7 +88,6 @@ package types is
 
   constant C_ALU_LDLI   : T_ALU_OP := "000001";
   constant C_ALU_LDHI   : T_ALU_OP := "000010";
-  constant C_ALU_LDHIO  : T_ALU_OP := "000011";
   constant C_ALU_ADDHI  : T_ALU_OP := "000100";
 
   constant C_ALU_CLZ    : T_ALU_OP := "001000";  -- Two-operand (op=0x7c, func=0x00)
