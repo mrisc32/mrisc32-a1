@@ -95,10 +95,9 @@ package types is
   constant C_ALU_REV    : T_ALU_OP := "001010";  -- Two-operand (op=0x7c, func=0x02)
 
   constant C_ALU_OR     : T_ALU_OP := "010000";
-  constant C_ALU_NOR    : T_ALU_OP := "010001";
-  constant C_ALU_AND    : T_ALU_OP := "010010";
-  constant C_ALU_BIC    : T_ALU_OP := "010011";
-  constant C_ALU_XOR    : T_ALU_OP := "010100";
+  constant C_ALU_AND    : T_ALU_OP := "010001";
+  constant C_ALU_XOR    : T_ALU_OP := "010010";
+
   constant C_ALU_ADD    : T_ALU_OP := "010101";
   constant C_ALU_SUB    : T_ALU_OP := "010110";
 

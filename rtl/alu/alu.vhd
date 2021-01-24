@@ -41,9 +41,7 @@ architecture rtl of alu is
   -- Intermediate (concurrent) operation results.
   signal s_cpuid_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_or_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
-  signal s_nor_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_and_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
-  signal s_bic_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_xor_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_set_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_min_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
@@ -63,6 +61,10 @@ architecture rtl of alu is
   -- Signals for the packer.
   signal s_pack_is_saturated : std_logic;
   signal s_pack_is_unsigned : std_logic;
+
+  -- Signals for the bitwise operations.
+  signal s_bitwise_a : std_logic_vector(C_WORD_SIZE-1 downto 0);
+  signal s_bitwise_b : std_logic_vector(C_WORD_SIZE-1 downto 0);
 
   -- Signals for the adder.
   signal s_add_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
@@ -93,20 +95,18 @@ begin
   -- Bitwise operations
   ------------------------------------------------------------------------------------------------
 
-  -- C_ALU_OR
-  s_or_res <= i_src_a or i_src_b;
+  -- Optionally negate input signals for the bitwise operations.
+  s_bitwise_a <= i_src_a when i_packed_mode(1) = '0' else not i_src_a;
+  s_bitwise_b <= i_src_b when i_packed_mode(0) = '0' else not i_src_b;
 
-  -- C_ALU_NOR
-  s_nor_res <= not (i_src_a or i_src_b);
+  -- C_ALU_OR
+  s_or_res <= s_bitwise_a or s_bitwise_b;
 
   -- C_ALU_AND
-  s_and_res <= i_src_a and i_src_b;
-
-  -- C_ALU_BIC
-  s_bic_res <= i_src_a and (not i_src_b);
+  s_and_res <= s_bitwise_a and s_bitwise_b;
 
   -- C_ALU_XOR
-  s_xor_res <= i_src_a xor i_src_b;
+  s_xor_res <= s_bitwise_a xor s_bitwise_b;
 
 
   ------------------------------------------------------------------------------------------------
@@ -291,9 +291,7 @@ begin
     o_result <=
         s_cpuid_res when C_ALU_CPUID,
         s_or_res  when C_ALU_OR,
-        s_nor_res when C_ALU_NOR,
         s_and_res when C_ALU_AND,
-        s_bic_res when C_ALU_BIC,
         s_xor_res when C_ALU_XOR,
         s_add_res when C_ALU_ADD,
         s_sub_res when C_ALU_SUB,
