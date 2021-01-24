@@ -73,9 +73,6 @@ architecture rtl of alu is
   signal s_shift_is_arithmetic : std_logic;
   signal s_shifter_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
 
-  -- Signals for 21-bit high immediate operations.
-  signal s_src_b_as_imm21hi : std_logic_vector(C_WORD_SIZE-1 downto 0);
-
 begin
   ------------------------------------------------------------------------------------------------
   -- CPUID
@@ -272,17 +269,19 @@ begin
   -- 21-bit immediate operations
   ------------------------------------------------------------------------------------------------
 
-  -- Expand 21-bit immediate according to LDHI/ADDPCHI semantics.
-  s_src_b_as_imm21hi(C_WORD_SIZE-1 downto C_WORD_SIZE-21) <= i_src_b(20 downto 0);
-  s_src_b_as_imm21hi(C_WORD_SIZE-22 downto 0) <= (others => i_src_b(0));
-
-  -- C_ALU_LDLI, C_ALU_LDHI
+  -- C_ALU_LDLI (already sign extended by the decode step - should we do it here instead?)
   s_ldli_res <= i_src_b;
-  s_ldhi_res <= s_src_b_as_imm21hi;
 
-  -- Add high immediate (C_ALU_ADDHI)
-  s_addhi_res <= std_logic_vector(unsigned(i_src_a) + unsigned(s_src_b_as_imm21hi));
+  -- C_ALU_LDHI
+  s_ldhi_res(C_WORD_SIZE-1 downto C_WORD_SIZE-21) <= i_src_b(20 downto 0);
+  s_ldhi_res(C_WORD_SIZE-22 downto 0) <= (others => i_src_b(0));
 
+  -- C_ALU_ADDHI - Add high immediate, i.e. add lower 21 bits of src_b to upper 21 bits of src_a
+  s_addhi_res(C_WORD_SIZE-1 downto C_WORD_SIZE-21) <=
+      std_logic_vector(
+          unsigned(i_src_b(20 downto 0)) + unsigned(i_src_a(C_WORD_SIZE-1 downto C_WORD_SIZE-21))
+      );
+  s_addhi_res(C_WORD_SIZE-22 downto 0) <= i_src_a(C_WORD_SIZE-22 downto 0);
 
   ------------------------------------------------------------------------------------------------
   -- Select the output.
