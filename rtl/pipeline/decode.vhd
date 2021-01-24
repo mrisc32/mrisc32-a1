@@ -112,6 +112,7 @@ architecture rtl of decode is
   signal s_is_type_b : std_logic;
   signal s_is_type_c : std_logic;
   signal s_is_type_d : std_logic;
+  signal s_is_type_e : std_logic;
 
   signal s_vector_mode : std_logic_vector(1 downto 0);
   signal s_is_vector_op : std_logic;
@@ -271,7 +272,8 @@ begin
   s_is_type_a <= '1' when s_op_high = "000000" and s_op_low(6 downto 2) /= "11111" else '0';
   s_is_type_b <= '1' when s_op_high = "000000" and s_op_low(6 downto 2) = "11111" else '0';
   s_is_type_c <= '1' when s_op_high /= "000000" and s_op_high(5 downto 4) /= "11" else '0';
-  s_is_type_d <= '1' when s_op_high(5 downto 4) = "11" else '0';
+  s_is_type_d <= '1' when s_op_high(5 downto 3) = "110" and s_op_high(2 downto 0) /= "111" else '0';
+  s_is_type_e <= '1' when s_op_high = "110111" else '0';
 
   -- Extract immediate.
   s_imm_from_instr <= decode_immediate(i_instr, s_is_type_d);
@@ -292,10 +294,10 @@ begin
   s_is_mem_op <= s_mem_op_type(0) or s_mem_op_type(1);
   s_is_mem_store <= s_is_mem_op and s_mem_op(3);
 
-  -- Is this an immediate load?
-  s_is_ldli    <= '1' when s_op_high = 6X"3a" else '0';
-  s_is_ldhi    <= '1' when s_op_high = 6X"3b" else '0';
-  s_is_addpchi <= '1' when s_op_high = 6X"3d" else '0';
+  -- Explicitly decode LDLI, LDHI and ADDPCHI (we use these flags to map them to ALU operations).
+  s_is_ldli    <= '1' when s_op_high = "110000" else '0';
+  s_is_ldhi    <= '1' when s_op_high = "110001" else '0';
+  s_is_addpchi <= '1' when s_op_high = "110011" else '0';
 
   -- Is this a two-operand operation?
   s_func <= i_instr(14 downto 9) when s_is_type_b = '1' else (others => '0');
@@ -317,7 +319,7 @@ begin
   s_is_fpu_op <= '1' when s_is_type_a = '1' and s_op_low(6 downto 5) = "11" and s_is_fdiv = '0' else s_is_type_b_fpu;
 
   -- Determine vector mode.
-  s_vector_mode(1) <= i_instr(15) and not s_is_type_d;
+  s_vector_mode(1) <= i_instr(15) and not (s_is_type_d or s_is_type_e);
   s_vector_mode(0) <= i_instr(14) and s_is_type_a;
   s_is_vector_op <= '1' when s_vector_mode /= "00" and (i_bubble or s_cancel) = '0' else '0';
   s_reg_a_is_vector <= s_is_vector_op and not s_is_mem_op;
@@ -412,17 +414,21 @@ begin
   --------------------------------------------------------------------------------------------------
 
   -- Unconditional branch: J, JL
-  s_is_unconditional_branch <= (not i_bubble) when s_op_high(5 downto 1) = "11100" else '0';
+  s_is_unconditional_branch <= (not i_bubble) when s_op_high(5 downto 1) = "11010" else '0';
   s_is_link_branch <= s_is_unconditional_branch and s_op_high(0);
 
   -- Conditional branch: B[cc]
-  s_is_conditional_branch <= (not i_bubble) when s_op_high(5 downto 3) = "110" else '0';
-  s_branch_condition <= s_op_high(2 downto 0);
+  s_is_conditional_branch <= (not i_bubble) when s_op_high(5 downto 0) = "110111" else '0';
+  s_branch_condition <= i_instr(20 downto 18);
 
   s_is_branch <= s_is_unconditional_branch or s_is_conditional_branch;
 
-  -- The branch offset is the lowest 21 bits of the instruction (i.e. the 21-bit immediate).
-  s_branch_offset <= i_instr(20 downto 0);
+  -- Unconditional branches (J, JL) use a 21-bit branch offset, while conditional branches (Bcc) use
+  -- an 18-bit branch offset. Both offsets are encoded in the least significant bits of the
+  -- instruction word.
+  s_branch_offset(17 downto 0) <= i_instr(17 downto 0);
+  s_branch_offset(20 downto 18) <= i_instr(20 downto 18) when s_is_unconditional_branch = '1' else
+                                   (others => i_instr(17));
 
 
   --------------------------------------------------------------------------------------------------
