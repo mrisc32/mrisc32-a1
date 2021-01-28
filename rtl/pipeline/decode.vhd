@@ -405,8 +405,9 @@ begin
     s_bubble_from_vector_op <= '0';
   end generate;
 
-  -- The target (write) element index is always the same as the src A element index.
-  s_element_c <= s_element_a;
+  -- The target (write) element index is always the same as the src B element index (which is never
+  -- subject to folding).
+  s_element_c <= s_element_b;
 
 
   --------------------------------------------------------------------------------------------------

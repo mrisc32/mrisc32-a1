@@ -77,21 +77,30 @@ architecture rtl of vector_control is
   constant C_VL_ZERO : std_logic_vector := to_vector(0, C_LOG2_VEC_REG_ELEMENTS+1);
   constant C_VL_ONE : std_logic_vector := to_vector(1, C_LOG2_VEC_REG_ELEMENTS+1);
   constant C_VL_TWO : std_logic_vector := to_vector(2, C_LOG2_VEC_REG_ELEMENTS+1);
+  constant C_VL_MAX : std_logic_vector := to_vector(C_VEC_REG_ELEMENTS, C_LOG2_VEC_REG_ELEMENTS+1);
+  constant C_VL_MAX_FOLD : std_logic_vector := to_vector(C_VEC_REG_ELEMENTS/2, C_LOG2_VEC_REG_ELEMENTS+1);
 
   -- Debug signals (should be optimized away during synthesis).
   signal s_debug_state : std_logic_vector(1 downto 0);
 
-  -- Sanitize the VL data. We support the range [0, C_VEC_REG_ELEMENTS]. Anything outside of that
-  -- range is set to zero.
-  function sanitize_vl(vl: std_logic_vector(C_WORD_SIZE-1 downto 0)) return std_logic_vector is
+  -- Sanitize the VL data:
+  --   * We only use the C_LOG2_VEC_REG_ELEMENTS+1 least significant bits
+  --   * Clamp to the range [0, C_VEC_REG_ELEMENTS]
+  --   * Cut the length in half for folding
+  function sanitize_vl(vl: std_logic_vector; fold: std_logic) return std_logic_vector is
     variable v_result : std_logic_vector(C_LOG2_VEC_REG_ELEMENTS downto 0);
+    variable v_msb : std_logic;
   begin
-    if unsigned(vl(C_WORD_SIZE-1 downto C_LOG2_VEC_REG_ELEMENTS+1)) /= 0 then
-      v_result := C_VL_ZERO;
-    elsif vl(C_LOG2_VEC_REG_ELEMENTS) = '1' and unsigned(vl(C_LOG2_VEC_REG_ELEMENTS-1 downto 0)) /= 0 then
-      v_result := C_VL_ZERO;
-    else
+    v_msb := vl(C_LOG2_VEC_REG_ELEMENTS);
+    if fold = '0' and v_msb = '0' then
       v_result := vl(C_LOG2_VEC_REG_ELEMENTS downto 0);
+    elsif fold = '0' and v_msb = '1' then
+      v_result := C_VL_MAX;
+    elsif fold = '1' and v_msb = '0' then
+      -- TODO(m): We should ensure a POT size here.
+      v_result := '0' & vl(C_LOG2_VEC_REG_ELEMENTS downto 1);
+    else  -- fold = '1' and v_msb = '1'
+      v_result := C_VL_MAX_FOLD;
     end if;
     return v_result;
   end function;
@@ -150,18 +159,12 @@ begin
   end process;
 
   -- Determine the vector length.
-  s_vl <= sanitize_vl(i_vl);
+  s_vl <= sanitize_vl(i_vl, i_fold);
   s_last_element <= std_logic_vector(unsigned(s_vl) - 1);
 
   -- Increment the count.
   s_count_plus_1 <= std_logic_vector(unsigned(s_count) + 1);
   s_next_element_is_the_last <= '1' when s_count_plus_1 = s_last_element else '0';
-
-  -- Calculate the folded index for src B.
-  s_folded_index <= std_logic_vector(
-      unsigned(s_count(C_LOG2_VEC_REG_ELEMENTS-1 downto 0)) +
-      unsigned(s_vl(C_LOG2_VEC_REG_ELEMENTS-1 downto 0))
-      );
 
   -- Is this the first element in a multi-element vector loop?
   s_is_first_element_of_many <=
@@ -172,14 +175,20 @@ begin
         s_vl /= C_VL_ONE
       else '0';
 
+  -- Calculate the folded index for src A.
+  s_folded_index <= std_logic_vector(
+      unsigned(s_count(C_LOG2_VEC_REG_ELEMENTS-1 downto 0)) +
+      unsigned(s_vl(C_LOG2_VEC_REG_ELEMENTS-1 downto 0))
+      );
+
   -- Outputs.
-  o_element_a <= s_count(C_LOG2_VEC_REG_ELEMENTS-1 downto 0);
-  o_element_b <= s_folded_index when i_fold = '1' else s_count(C_LOG2_VEC_REG_ELEMENTS-1 downto 0);
+  o_element_a <= s_folded_index when i_fold = '1' else s_count(C_LOG2_VEC_REG_ELEMENTS-1 downto 0);
+  o_element_b <= s_count(C_LOG2_VEC_REG_ELEMENTS-1 downto 0);
 
   -- Should we stall the IF stage?
   o_is_vector_op_busy <= '1' when s_state = BUSY or s_is_first_element_of_many = '1' else '0';
 
-  -- Should we bubble (i.e. we're doing a zero lenght vector operatoin)?
+  -- Should we bubble (i.e. we're doing a zero lenght vector operation)?
   o_bubble <= i_is_vector_op when s_vl = C_VL_ZERO else '0';
 
   -- Signal whether or not a vector operation was just started.
