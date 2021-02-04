@@ -76,7 +76,7 @@ architecture rtl of div_impl is
   type T_DIV_STATE_ARRAY is array (0 to STEPS_PER_CYCLE) of T_DIV_STATE;
 
   -- D1 signals.
-  signal s_is_unsigned_op : std_logic;
+  signal s_is_signed_op : std_logic;
   signal s_is_division_by_zero : std_logic;
   signal s_src_a_is_neg : std_logic;
   signal s_src_b_is_neg : std_logic;
@@ -201,10 +201,14 @@ begin
   --------------------------------------------------------------------------------------------------
 
   -- Handle sign.
-  s_is_unsigned_op <= i_op(0);
+  IsUnsignedMux: with i_op select
+    s_is_signed_op <=
+        '0' when C_DIV_DIVU | C_DIV_REMU,
+        '1' when C_DIV_DIV | C_DIV_REM,
+        '-' when others;
   s_is_division_by_zero <= is_zero(i_src_b);
-  s_src_a_is_neg <= i_src_a(WIDTH-1) and not s_is_unsigned_op;
-  s_src_b_is_neg <= i_src_b(WIDTH-1) and not s_is_unsigned_op;
+  s_src_a_is_neg <= i_src_a(WIDTH-1) and s_is_signed_op;
+  s_src_b_is_neg <= i_src_b(WIDTH-1) and s_is_signed_op;
 
   s_d1_next_negate_q <= (s_src_a_is_neg xor s_src_b_is_neg) and not s_is_division_by_zero;
   s_d1_next_negate_r <= s_src_a_is_neg;
@@ -282,12 +286,12 @@ begin
   -- Start a new operation?
   s_d1_next_enable <= i_enable and not s_is_loop_busy;
 
-  -- Floating point or integer operation?
-  s_d1_next_is_fdiv <= '0' when (i_op = C_DIV_DIV or
-                                 i_op = C_DIV_DIVU or
-                                 i_op = C_DIV_REM or
-                                 i_op = C_DIV_REMU) else
-                       '1';
+  -- Floating-point or integer operation?
+  IsFdivMux: with i_op select
+    s_d1_next_is_fdiv <=
+      '0' when C_DIV_DIV | C_DIV_DIVU | C_DIV_REM | C_DIV_REMU,
+      '1' when C_DIV_FDIV,
+      '-' when others;
 
   -- Prepare the state for the first iteration.
   s_d1_next_state <= s_d1_next_state_float when s_d1_next_is_fdiv = '1' else s_d1_next_state_int;
@@ -418,10 +422,10 @@ begin
 
   -- Prepare the output signals.
   ResultMux: with s_d2_op select
-  s_d3_next_result <=
-    s_q when C_DIV_DIV | C_DIV_DIVU,
-    s_r when C_DIV_REM | C_DIV_REMU,
-    (others => '-') when others;
+    s_d3_next_result <=
+      s_q when C_DIV_DIV | C_DIV_DIVU,
+      s_r when C_DIV_REM | C_DIV_REMU,
+      (others => '-') when others;
 
   s_d3_next_integer_result_done <= s_d2_done and not s_d2_is_fdiv;
 

@@ -312,11 +312,11 @@ begin
   -- Is this FDIV?
   s_is_fdiv <= '1' when (s_is_type_a = '1' and s_op_low = "1" & C_FPU_FDIV) else '0';
 
-  -- Is this a SAU, MUL, DIV or FPU op?
-  s_is_sau_op <= '1' when s_is_type_a = '1' and s_op_low(6 downto 3) = "0111" else '0';
-  s_is_mul_op <= '1' when s_is_type_a = '1' and s_op_low(6 downto 2) = "10000" else '0';
-  s_is_div_op <= '1' when (s_is_type_a = '1' and s_op_low(6 downto 2) = "10001") or s_is_fdiv = '1' else '0';
-  s_is_fpu_op <= '1' when s_is_type_a = '1' and s_op_low(6 downto 5) = "11" and s_is_fdiv = '0' else s_is_type_b_fpu;
+  -- Is this a DIV, MUL, FPU or SAU op?
+  s_is_div_op <= '1' when (s_is_type_a = '1' and s_op_low(6 downto 2) = "01100") or s_is_fdiv = '1' else '0';
+  s_is_mul_op <= '1' when s_is_type_a = '1' and s_op_low(6 downto 2) = "01101" else '0';  -- TODO(m): handle MULQR
+  s_is_fpu_op <= '1' when s_is_type_a = '1' and s_op_low(6 downto 5) = "10" and s_is_fdiv = '0' else s_is_type_b_fpu;
+  s_is_sau_op <= '1' when s_is_type_a = '1' and s_op_low(6 downto 4) = "110" else '0';
 
   -- Determine vector mode.
   s_vector_mode(1) <= i_instr(15) and not (s_is_type_d or s_is_type_e);
@@ -475,12 +475,12 @@ begin
   s_dst_reg.is_vector <= s_reg_c_is_vector and not s_is_mem_store;
 
   -- What pipeline units should be enabled?
-  s_alu_en <= not (s_is_mem_op or s_is_sau_op or s_is_mul_op or s_is_div_op or s_is_fpu_op);
-  s_sau_en <= s_is_sau_op;
-  s_mul_en <= s_is_mul_op;
-  s_div_en <= s_is_div_op;
+  s_alu_en <= not (s_is_mem_op or s_is_div_op or s_is_mul_op or s_is_fpu_op or s_is_sau_op);
   s_mem_en <= s_is_mem_op;
+  s_div_en <= s_is_div_op;
+  s_mul_en <= s_is_mul_op;
   s_fpu_en <= s_is_fpu_op;
+  s_sau_en <= s_is_sau_op;
 
   -- Select ALU operation.
   s_alu_op <=
@@ -509,28 +509,28 @@ begin
       -- Map the high order opcode directly to the ALU.
       s_op_high;
 
-  -- Select saturating arithmetic operation.
-  -- Map the low order bits of the low order opcode directly to the saturating arithmetic unit.
-  s_sau_op <= s_op_low(C_SAU_OP_SIZE-1 downto 0);
-
-  -- Select multiply operation.
-  -- Map the low order bits of the low order opcode directly to the multiply unit.
-  s_mul_op <= s_op_low(C_MUL_OP_SIZE-1 downto 0);
-
   -- Select division operation.
   -- Map the low order bits of the low order opcode directly to the division unit, except for
   -- for FDIV, which is decoded separately.
   s_div_op <= C_DIV_FDIV when s_is_fdiv = '1' else
               "0" & s_op_low(C_DIV_OP_SIZE-2 downto 0);
 
+  -- Select multiply operation.
+  -- Map the low order bits of the low order opcode directly to the multiply unit.
+  s_mul_op <= s_op_low(C_MUL_OP_SIZE-1 downto 0);
+
   -- Select FPU operation.
-  s_fpu_op <=
+  s_fpu_op(C_FPU_OP_SIZE-1) <= s_is_type_b_fpu;
+  s_fpu_op(C_FPU_OP_SIZE-2 downto 0) <=
       -- We map the two-operand FUNC ID into the opcode for such instructions.
-      s_func when s_is_type_b_fpu = '1' else
+      s_func(C_FPU_OP_SIZE-2 downto 0) when s_is_type_b_fpu = '1' else
 
       -- Map the low order bits of the low order opcode directly to the FPU.
-      s_op_low(C_FPU_OP_SIZE-1 downto 0);
+      s_op_low(C_FPU_OP_SIZE-2 downto 0);
 
+  -- Select saturating arithmetic operation.
+  -- Map the low order bits of the low order opcode directly to the saturating arithmetic unit.
+  s_sau_op <= s_op_low(C_SAU_OP_SIZE-1 downto 0);
 
   -- Are we missing any fwd operation that has not yet been produced by the pipeline?
   s_missing_fwd_operand <= s_is_vector_op and i_vl_fwd_use_value and not i_vl_fwd_value_ready;

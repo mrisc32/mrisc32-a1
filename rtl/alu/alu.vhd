@@ -40,23 +40,26 @@ end;
 architecture rtl of alu is
   -- Intermediate (concurrent) operation results.
   signal s_cpuid_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
-  signal s_or_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_and_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
+  signal s_or_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_xor_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
-  signal s_set_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
+  signal s_shifter_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
+  signal s_add_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
+  signal s_sub_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_min_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_max_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_minu_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_maxu_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
-  signal s_shuf_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_sel_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
-  signal s_rev_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
+  signal s_shuf_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
+  signal s_set_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_pack_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
+  signal s_rev_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
+  signal s_clz_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
+  signal s_popcnt_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_ldli_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_ldhi_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_addhi_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
-  signal s_clz_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
-  signal s_popcnt_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
 
   -- Signals for the packer.
   signal s_pack_is_saturated : std_logic;
@@ -66,14 +69,9 @@ architecture rtl of alu is
   signal s_bitwise_a : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_bitwise_b : std_logic_vector(C_WORD_SIZE-1 downto 0);
 
-  -- Signals for the adder.
-  signal s_add_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
-  signal s_sub_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
-
   -- Signals for the shifter.
   signal s_shift_is_right : std_logic;
   signal s_shift_is_arithmetic : std_logic;
-  signal s_shifter_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
 
 begin
   ------------------------------------------------------------------------------------------------
@@ -290,23 +288,23 @@ begin
   AluMux: with i_op select
     o_result <=
         s_cpuid_res when C_ALU_CPUID,
-        s_or_res  when C_ALU_OR,
         s_and_res when C_ALU_AND,
+        s_or_res  when C_ALU_OR,
         s_xor_res when C_ALU_XOR,
+        s_shifter_res when C_ALU_LSR | C_ALU_ASR | C_ALU_LSL,
         s_add_res when C_ALU_ADD,
         s_sub_res when C_ALU_SUB,
-        s_set_res when C_ALU_SEQ | C_ALU_SNE | C_ALU_SLT | C_ALU_SLTU | C_ALU_SLE | C_ALU_SLEU,
         s_min_res when C_ALU_MIN,
         s_max_res when C_ALU_MAX,
         s_minu_res when C_ALU_MINU,
         s_maxu_res when C_ALU_MAXU,
-        s_shifter_res when C_ALU_LSR | C_ALU_ASR | C_ALU_LSL,
-        s_shuf_res when C_ALU_SHUF,
         s_sel_res when C_ALU_SEL,
+        s_shuf_res when C_ALU_SHUF,
+        s_set_res when C_ALU_SEQ | C_ALU_SNE | C_ALU_SLT | C_ALU_SLTU | C_ALU_SLE | C_ALU_SLEU,
+        s_pack_res when C_ALU_PACK | C_ALU_PACKS | C_ALU_PACKSU,
+        s_rev_res when C_ALU_REV,
         s_clz_res when C_ALU_CLZ,
         s_popcnt_res when C_ALU_POPCNT,
-        s_rev_res when C_ALU_REV,
-        s_pack_res when C_ALU_PACK | C_ALU_PACKS | C_ALU_PACKSU,
         s_ldli_res when C_ALU_LDLI,
         s_ldhi_res when C_ALU_LDHI,
         s_addhi_res when C_ALU_ADDHI,

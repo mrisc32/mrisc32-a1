@@ -90,59 +90,38 @@ package types is
   constant C_ALU_LDHI   : T_ALU_OP := "000010";
   constant C_ALU_ADDHI  : T_ALU_OP := "000100";
 
-  constant C_ALU_CLZ    : T_ALU_OP := "001000";  -- Two-operand (op=0x7c, func=0x00)
-  constant C_ALU_POPCNT : T_ALU_OP := "001001";  -- Two-operand (op=0x7c, func=0x01)
-  constant C_ALU_REV    : T_ALU_OP := "001010";  -- Two-operand (op=0x7c, func=0x02)
+  constant C_ALU_REV    : T_ALU_OP := "001000";  -- Two-operand (op=0x7c, func=0x00)
+  constant C_ALU_CLZ    : T_ALU_OP := "001001";  -- Two-operand (op=0x7c, func=0x01)
+  constant C_ALU_POPCNT : T_ALU_OP := "001010";  -- Two-operand (op=0x7c, func=0x02)
 
-  constant C_ALU_OR     : T_ALU_OP := "010000";
-  constant C_ALU_AND    : T_ALU_OP := "010001";
+  constant C_ALU_AND    : T_ALU_OP := "010000";
+  constant C_ALU_OR     : T_ALU_OP := "010001";
   constant C_ALU_XOR    : T_ALU_OP := "010010";
 
-  constant C_ALU_ADD    : T_ALU_OP := "010101";
-  constant C_ALU_SUB    : T_ALU_OP := "010110";
+  constant C_ALU_ASR    : T_ALU_OP := "010011";
+  constant C_ALU_LSL    : T_ALU_OP := "010100";
+  constant C_ALU_LSR    : T_ALU_OP := "010101";
 
-  constant C_ALU_SEQ    : T_ALU_OP := "010111";
-  constant C_ALU_SNE    : T_ALU_OP := "011000";
-  constant C_ALU_SLT    : T_ALU_OP := "011001";
-  constant C_ALU_SLTU   : T_ALU_OP := "011010";
-  constant C_ALU_SLE    : T_ALU_OP := "011011";
-  constant C_ALU_SLEU   : T_ALU_OP := "011100";
-  constant C_ALU_MIN    : T_ALU_OP := "011101";
-  constant C_ALU_MAX    : T_ALU_OP := "011110";
-  constant C_ALU_MINU   : T_ALU_OP := "011111";
-  constant C_ALU_MAXU   : T_ALU_OP := "100000";
+  constant C_ALU_ADD    : T_ALU_OP := "010110";
+  constant C_ALU_SUB    : T_ALU_OP := "010111";
 
-  constant C_ALU_ASR    : T_ALU_OP := "100001";
-  constant C_ALU_LSL    : T_ALU_OP := "100010";
-  constant C_ALU_LSR    : T_ALU_OP := "100011";
-  constant C_ALU_SHUF   : T_ALU_OP := "100100";
-  constant C_ALU_SEL    : T_ALU_OP := "100101";
+  constant C_ALU_MIN    : T_ALU_OP := "011000";
+  constant C_ALU_MAX    : T_ALU_OP := "011001";
+  constant C_ALU_MINU   : T_ALU_OP := "011010";
+  constant C_ALU_MAXU   : T_ALU_OP := "011011";
+  constant C_ALU_SEL    : T_ALU_OP := "011100";
+  constant C_ALU_SHUF   : T_ALU_OP := "011101";
 
-  constant C_ALU_PACK   : T_ALU_OP := "110000";
-  constant C_ALU_PACKS  : T_ALU_OP := "110001";
-  constant C_ALU_PACKSU : T_ALU_OP := "110010";
+  constant C_ALU_SEQ    : T_ALU_OP := "011110";
+  constant C_ALU_SNE    : T_ALU_OP := "011111";
+  constant C_ALU_SLT    : T_ALU_OP := "100000";
+  constant C_ALU_SLTU   : T_ALU_OP := "100001";
+  constant C_ALU_SLE    : T_ALU_OP := "100010";
+  constant C_ALU_SLEU   : T_ALU_OP := "100011";
 
-  -- SAU operations.
-  constant C_SAU_OP_SIZE : integer := 3;
-  subtype T_SAU_OP is std_logic_vector(C_SAU_OP_SIZE-1 downto 0);
-
-  constant C_SAU_ADDS  : T_SAU_OP := "000";
-  constant C_SAU_ADDSU : T_SAU_OP := "001";
-  constant C_SAU_ADDH  : T_SAU_OP := "010";
-  constant C_SAU_ADDHU : T_SAU_OP := "011";
-  constant C_SAU_SUBS  : T_SAU_OP := "100";
-  constant C_SAU_SUBSU : T_SAU_OP := "101";
-  constant C_SAU_SUBH  : T_SAU_OP := "110";
-  constant C_SAU_SUBHU : T_SAU_OP := "111";
-
-  -- MUL operations.
-  constant C_MUL_OP_SIZE : integer := 2;
-  subtype T_MUL_OP is std_logic_vector(C_MUL_OP_SIZE-1 downto 0);
-
-  constant C_MUL_MULQ   : T_MUL_OP := "00";
-  constant C_MUL_MUL    : T_MUL_OP := "01";
-  constant C_MUL_MULHI  : T_MUL_OP := "10";
-  constant C_MUL_MULHIU : T_MUL_OP := "11";
+  constant C_ALU_PACK   : T_ALU_OP := "111010";
+  constant C_ALU_PACKS  : T_ALU_OP := "111011";
+  constant C_ALU_PACKSU : T_ALU_OP := "111100";
 
   -- DIV operations.
   constant C_DIV_OP_SIZE : integer := 3;
@@ -154,34 +133,56 @@ package types is
   constant C_DIV_REMU : T_DIV_OP := "011";
   constant C_DIV_FDIV : T_DIV_OP := "100";  -- Special decoding.
 
+  -- MUL operations.
+  constant C_MUL_OP_SIZE : integer := 3;
+  subtype T_MUL_OP is std_logic_vector(C_MUL_OP_SIZE-1 downto 0);
+
+  constant C_MUL_MUL    : T_MUL_OP := "100";
+  constant C_MUL_MULHI  : T_MUL_OP := "101";
+  constant C_MUL_MULHIU : T_MUL_OP := "110";
+  constant C_MUL_MULQ   : T_MUL_OP := "111";
+
   -- FPU operations.
   constant C_FPU_OP_SIZE : integer := 6;
   subtype T_FPU_OP is std_logic_vector(C_FPU_OP_SIZE-1 downto 0);
 
-  constant C_FPU_FMIN    : T_FPU_OP := "100000";
-  constant C_FPU_FMAX    : T_FPU_OP := "100001";
-  constant C_FPU_FSEQ    : T_FPU_OP := "100010";
-  constant C_FPU_FSNE    : T_FPU_OP := "100011";
-  constant C_FPU_FSLT    : T_FPU_OP := "100100";
-  constant C_FPU_FSLE    : T_FPU_OP := "100101";
-  constant C_FPU_FSUNORD : T_FPU_OP := "100110";
-  constant C_FPU_FSORD   : T_FPU_OP := "100111";
+  constant C_FPU_FMIN    : T_FPU_OP := "000000";
+  constant C_FPU_FMAX    : T_FPU_OP := "000001";
+  constant C_FPU_FSEQ    : T_FPU_OP := "000010";
+  constant C_FPU_FSNE    : T_FPU_OP := "000011";
+  constant C_FPU_FSLT    : T_FPU_OP := "000100";
+  constant C_FPU_FSLE    : T_FPU_OP := "000101";
+  constant C_FPU_FSUNORD : T_FPU_OP := "000110";
+  constant C_FPU_FSORD   : T_FPU_OP := "000111";
 
-  constant C_FPU_ITOF    : T_FPU_OP := "101000";
-  constant C_FPU_UTOF    : T_FPU_OP := "101001";
-  constant C_FPU_FTOI    : T_FPU_OP := "101010";
-  constant C_FPU_FTOU    : T_FPU_OP := "101011";
-  constant C_FPU_FTOIR   : T_FPU_OP := "101100";
-  constant C_FPU_FTOUR   : T_FPU_OP := "101101";
-  constant C_FPU_FPACK   : T_FPU_OP := "101110";
+  constant C_FPU_ITOF    : T_FPU_OP := "001000";
+  constant C_FPU_UTOF    : T_FPU_OP := "001001";
+  constant C_FPU_FTOI    : T_FPU_OP := "001010";
+  constant C_FPU_FTOU    : T_FPU_OP := "001011";
+  constant C_FPU_FTOIR   : T_FPU_OP := "001100";
+  constant C_FPU_FTOUR   : T_FPU_OP := "001101";
+  constant C_FPU_FPACK   : T_FPU_OP := "001110";
 
-  constant C_FPU_FADD    : T_FPU_OP := "110000";
-  constant C_FPU_FSUB    : T_FPU_OP := "110001";
-  constant C_FPU_FMUL    : T_FPU_OP := "110010";
-  constant C_FPU_FDIV    : T_FPU_OP := "110011";  -- Not handled by the FPU!
+  constant C_FPU_FADD    : T_FPU_OP := "010000";
+  constant C_FPU_FSUB    : T_FPU_OP := "010001";
+  constant C_FPU_FMUL    : T_FPU_OP := "010010";
+  constant C_FPU_FDIV    : T_FPU_OP := "010011";  -- Not handled by the FPU!
 
-  constant C_FPU_FUNPL   : T_FPU_OP := "000000";  -- Two-operand (op=0x7d, func=0x00)
-  constant C_FPU_FUNPH   : T_FPU_OP := "000001";  -- Two-operand (op=0x7d, func=0x01)
+  constant C_FPU_FUNPL   : T_FPU_OP := "100000";  -- Two-operand (op=0x7d, func=0x00)
+  constant C_FPU_FUNPH   : T_FPU_OP := "100001";  -- Two-operand (op=0x7d, func=0x01)
+
+  -- SAU operations.
+  constant C_SAU_OP_SIZE : integer := 4;
+  subtype T_SAU_OP is std_logic_vector(C_SAU_OP_SIZE-1 downto 0);
+
+  constant C_SAU_ADDS  : T_SAU_OP := "0000";
+  constant C_SAU_ADDSU : T_SAU_OP := "0001";
+  constant C_SAU_ADDH  : T_SAU_OP := "0010";
+  constant C_SAU_ADDHU : T_SAU_OP := "0011";
+  constant C_SAU_SUBS  : T_SAU_OP := "0110";
+  constant C_SAU_SUBSU : T_SAU_OP := "0111";
+  constant C_SAU_SUBH  : T_SAU_OP := "1000";
+  constant C_SAU_SUBHU : T_SAU_OP := "1001";
 
   -- MEM operations.
   constant C_MEM_OP_SIZE : integer := 4;

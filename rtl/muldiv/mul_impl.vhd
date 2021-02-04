@@ -53,7 +53,7 @@ architecture rtl of mul_impl is
   type T_RETURN_BITS is (Q_BITS, LO_BITS, HI_BITS);
 
   -- M1 signals.
-  signal s_signed_op : std_logic;
+  signal s_is_signed_op : std_logic;
   signal s_m1_next_src_a : std_logic_vector(WIDTH downto 0);
   signal s_m1_next_src_b : std_logic_vector(WIDTH downto 0);
   signal s_m1_next_return_bits : T_RETURN_BITS;
@@ -80,7 +80,11 @@ begin
   --------------------------------------------------------------------------------------------------
 
   -- Decode the multiplication operation.
-  s_signed_op <= not i_op(0);
+  IsSignedMux: with i_op select
+    s_is_signed_op <=
+        '0' when C_MUL_MUL | C_MUL_MULHIU,
+        '1' when C_MUL_MULHI | C_MUL_MULQ,
+        '-' when others;
 
   ReturnBitsMux: with i_op select
     s_m1_next_return_bits <=
@@ -90,8 +94,8 @@ begin
 
   -- Widen the input signals (extend with a sign-bit for signed operations, or zero for unsigned
   -- operations).
-  s_m1_next_src_a <= (i_src_a(WIDTH-1) and s_signed_op) & i_src_a;
-  s_m1_next_src_b <= (i_src_b(WIDTH-1) and s_signed_op) & i_src_b;
+  s_m1_next_src_a <= (i_src_a(WIDTH-1) and s_is_signed_op) & i_src_a;
+  s_m1_next_src_b <= (i_src_b(WIDTH-1) and s_is_signed_op) & i_src_b;
 
   -- M1 -> M2 Registers.
   process(i_clk, i_rst)
