@@ -175,14 +175,18 @@ package types is
   constant C_SAU_OP_SIZE : integer := 4;
   subtype T_SAU_OP is std_logic_vector(C_SAU_OP_SIZE-1 downto 0);
 
-  constant C_SAU_ADDS  : T_SAU_OP := "0000";
-  constant C_SAU_ADDSU : T_SAU_OP := "0001";
-  constant C_SAU_ADDH  : T_SAU_OP := "0010";
-  constant C_SAU_ADDHU : T_SAU_OP := "0011";
-  constant C_SAU_SUBS  : T_SAU_OP := "0110";
-  constant C_SAU_SUBSU : T_SAU_OP := "0111";
-  constant C_SAU_SUBH  : T_SAU_OP := "1000";
-  constant C_SAU_SUBHU : T_SAU_OP := "1001";
+  constant C_SAU_ADDS   : T_SAU_OP := "0000";
+  constant C_SAU_ADDSU  : T_SAU_OP := "0001";
+  constant C_SAU_ADDH   : T_SAU_OP := "0010";
+  constant C_SAU_ADDHU  : T_SAU_OP := "0011";
+  constant C_SAU_ADDHR  : T_SAU_OP := "0100";
+  constant C_SAU_ADDHUR : T_SAU_OP := "0101";
+  constant C_SAU_SUBS   : T_SAU_OP := "0110";
+  constant C_SAU_SUBSU  : T_SAU_OP := "0111";
+  constant C_SAU_SUBH   : T_SAU_OP := "1000";
+  constant C_SAU_SUBHU  : T_SAU_OP := "1001";
+  constant C_SAU_SUBHR  : T_SAU_OP := "1010";
+  constant C_SAU_SUBHUR : T_SAU_OP := "1011";
 
   -- MEM operations.
   constant C_MEM_OP_SIZE : integer := 4;

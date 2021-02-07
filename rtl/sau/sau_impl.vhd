@@ -55,6 +55,7 @@ architecture rtl of sau_impl is
   -- S1 signals.
   signal s_src_a_ext : std_logic_vector(WIDTH downto 0);
   signal s_src_b_ext : std_logic_vector(WIDTH downto 0);
+  signal s_rounding : unsigned(0 downto 0);
   signal s_add_result : unsigned(WIDTH downto 0);
   signal s_sub_result : unsigned(WIDTH downto 0);
 
@@ -63,8 +64,8 @@ architecture rtl of sau_impl is
   signal s_s1_is_saturating : std_logic;
   signal s_s1_next_is_signed : std_logic;
   signal s_s1_is_signed : std_logic;
-  signal s_s1_next_is_sub_op : std_logic;
-  signal s_s1_is_sub_op : std_logic;
+  signal s_s1_next_s_is_subtract : std_logic;
+  signal s_s1_s_is_subtract : std_logic;
   signal s_s1_next_result : unsigned(WIDTH downto 0);
   signal s_s1_result : std_logic_vector(WIDTH downto 0);
 
@@ -106,9 +107,32 @@ begin
   --==================================================================================================
 
   -- Decode the SAU operation.
-  s_s1_next_is_sub_op <= i_op(2);
-  s_s1_next_is_saturating <= not i_op(1);
-  s_s1_next_is_signed <= not i_op(0);
+  IsSaturatingMux: with i_op select
+    s_s1_next_is_saturating <=
+      '1' when C_SAU_ADDS | C_SAU_ADDSU | C_SAU_SUBS | C_SAU_SUBSU,
+      '0' when C_SAU_ADDH | C_SAU_ADDHU | C_SAU_ADDHR | C_SAU_ADDHUR |
+               C_SAU_SUBH | C_SAU_SUBHU | C_SAU_SUBHR | C_SAU_SUBHUR,
+      '-' when others;
+
+  IsSignedMux: with i_op select
+    s_s1_next_is_signed <=
+      '1' when C_SAU_ADDS | C_SAU_ADDH | C_SAU_ADDHR | C_SAU_SUBS | C_SAU_SUBH | C_SAU_SUBHR,
+      '0' when C_SAU_ADDSU | C_SAU_ADDHU | C_SAU_ADDHUR |
+               C_SAU_SUBSU | C_SAU_SUBHU | C_SAU_SUBHUR,
+      '-' when others;
+
+  IsSubtractMux: with i_op select
+    s_s1_next_s_is_subtract <=
+      '1' when C_SAU_SUBS | C_SAU_SUBSU | C_SAU_SUBH | C_SAU_SUBHU | C_SAU_SUBHR | C_SAU_SUBHUR,
+      '0' when C_SAU_ADDS | C_SAU_ADDSU | C_SAU_ADDH | C_SAU_ADDHU | C_SAU_ADDHR | C_SAU_ADDHUR,
+      '-' when others;
+
+  RoundingMux: with i_op select
+    s_rounding <=
+      "1" when C_SAU_ADDHR | C_SAU_ADDHUR | C_SAU_SUBHR | C_SAU_SUBHUR,
+      "0" when C_SAU_ADDS | C_SAU_ADDSU | C_SAU_ADDH | C_SAU_ADDHU |
+               C_SAU_SUBS | C_SAU_SUBSU | C_SAU_SUBH | C_SAU_SUBHU,
+      "-" when others;
 
   -- Widen the input signals, with / without sign extension.
   s_src_a_ext(WIDTH) <= i_src_a(WIDTH-1) and s_s1_next_is_signed;
@@ -117,9 +141,9 @@ begin
   s_src_b_ext(WIDTH-1 downto 0) <= i_src_b;
 
   -- Perform the addition/subtraction.
-  s_add_result <= unsigned(s_src_a_ext) + unsigned(s_src_b_ext);
-  s_sub_result <= unsigned(s_src_a_ext) - unsigned(s_src_b_ext);
-  s_s1_next_result <= s_sub_result when s_s1_next_is_sub_op = '1' else s_add_result;
+  s_add_result <= unsigned(s_src_a_ext) + unsigned(s_src_b_ext) + s_rounding;
+  s_sub_result <= unsigned(s_src_a_ext) - unsigned(s_src_b_ext) + s_rounding;
+  s_s1_next_result <= s_sub_result when s_s1_next_s_is_subtract = '1' else s_add_result;
 
   -- Signals from stage 1 to stage 2 of the SAU.
   process(i_clk, i_rst)
@@ -128,14 +152,14 @@ begin
       s_s1_enable <= '0';
       s_s1_is_saturating <= '0';
       s_s1_is_signed <= '0';
-      s_s1_is_sub_op <= '0';
+      s_s1_s_is_subtract <= '0';
       s_s1_result <= (others => '0');
     elsif rising_edge(i_clk) then
       if i_stall = '0' then
         s_s1_enable <= i_enable;
         s_s1_is_saturating <= s_s1_next_is_saturating;
         s_s1_is_signed <= s_s1_next_is_signed;
-        s_s1_is_sub_op <= s_s1_next_is_sub_op;
+        s_s1_s_is_subtract <= s_s1_next_s_is_subtract;
         s_s1_result <= std_logic_vector(s_s1_next_result);
       end if;
     end if;
@@ -157,7 +181,7 @@ begin
   --  Unsigned sub:
   --            0xxxx -> xxxx
   --            1xxxx -> 0000 (min_unsigned)
-  s_saturate_select <= s_s1_is_sub_op & s_s1_is_signed & s_s1_result(WIDTH downto WIDTH-1);
+  s_saturate_select <= s_s1_s_is_subtract & s_s1_is_signed & s_s1_result(WIDTH downto WIDTH-1);
   SaturateMux: with s_saturate_select select
     s_saturate_result <=
       min_signed(WIDTH)             when "0110" | "1110",
