@@ -84,9 +84,22 @@ begin
         ('0', C_MUL_MUL,    C_PACKED_NONE,      X"00000063", X"00000063", X"00002649", '1'),
 
         -- Fixed point.
-        ('1', C_MUL_MULQ,   C_PACKED_NONE,      X"01234000", X"01234000", X"00000000", '0'),
-        ('0', C_MUL_MULQ,   C_PACKED_NONE,      X"01234000", X"01234000", X"00000000", '0'),
-        ('0', C_MUL_MULQ,   C_PACKED_NONE,      X"01234000", X"01234000", X"000296B5", '1'),
+        ('1', C_MUL_MULQ,   C_PACKED_NONE,      X"39431365", X"65432137", X"00000000", '0'),
+        ('1', C_MUL_MULQ,   C_PACKED_NONE,      X"39431365", X"E5432137", X"00000000", '0'),
+        ('1', C_MUL_MULQ,   C_PACKED_NONE,      X"7FFFFFFF", X"7FFFFFFF", X"2D4CF545", '1'),
+        ('1', C_MUL_MULQ,   C_PACKED_NONE,      X"80000000", X"80000000", X"F409E1E0", '1'),
+        ('1', C_MUL_MULQ,   C_PACKED_NONE,      X"80000000", X"80000001", X"7FFFFFFE", '1'),
+        ('0', C_MUL_MULQ,   C_PACKED_NONE,      X"00000000", X"00000000", X"7FFFFFFF", '1'),
+        ('0', C_MUL_MULQ,   C_PACKED_NONE,      X"00000000", X"00000000", X"7FFFFFFF", '1'),
+
+        -- Fixed point, rounding.
+        ('1', C_MUL_MULQR,  C_PACKED_NONE,      X"39431365", X"65432137", X"00000000", '0'),
+        ('1', C_MUL_MULQR,  C_PACKED_NONE,      X"39431365", X"E5432137", X"00000000", '0'),
+        ('1', C_MUL_MULQR,  C_PACKED_NONE,      X"7FFFFFFF", X"7FFFFFFF", X"2D4CF546", '1'),
+        ('1', C_MUL_MULQR,  C_PACKED_NONE,      X"80000000", X"80000000", X"F409E1E1", '1'),
+        ('1', C_MUL_MULQR,  C_PACKED_NONE,      X"80000000", X"80000001", X"7FFFFFFE", '1'),
+        ('0', C_MUL_MULQR,  C_PACKED_NONE,      X"00000000", X"00000000", X"7FFFFFFF", '1'),
+        ('0', C_MUL_MULQR,  C_PACKED_NONE,      X"00000000", X"00000000", X"7FFFFFFF", '1'),
 
         -- Packed operations.
         ('1', C_MUL_MUL,    C_PACKED_BYTE,      X"01020304", X"04050607", X"00000000", '0'),

@@ -314,7 +314,7 @@ begin
 
   -- Is this a DIV, MUL, FPU or SAU op?
   s_is_div_op <= '1' when (s_is_type_a = '1' and s_op_low(6 downto 2) = "01100") or s_is_fdiv = '1' else '0';
-  s_is_mul_op <= '1' when s_is_type_a = '1' and s_op_low(6 downto 2) = "01101" else '0';  -- TODO(m): handle MULQR
+  s_is_mul_op <= '1' when s_is_type_a = '1' and (s_op_low(6 downto 2) = "01101" or s_op_low = "0111000") else '0';  -- MULQR: 0111000
   s_is_fpu_op <= '1' when s_is_type_a = '1' and s_op_low(6 downto 5) = "10" and s_is_fdiv = '0' else s_is_type_b_fpu;
   s_is_sau_op <= '1' when s_is_type_a = '1' and s_op_low(6 downto 4) = "110" else '0';
 
