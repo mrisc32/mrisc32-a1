@@ -61,10 +61,6 @@ architecture rtl of alu is
   signal s_ldhi_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_addhi_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
 
-  -- Signals for the packer.
-  signal s_pack_is_saturated : std_logic;
-  signal s_pack_is_unsigned : std_logic;
-
   -- Signals for the bitwise operations.
   signal s_bitwise_a : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_bitwise_b : std_logic_vector(C_WORD_SIZE-1 downto 0);
@@ -141,18 +137,6 @@ begin
     );
 
   -- C_ALU_PACK
-  PackSaturatedMux: with i_op select
-    s_pack_is_saturated <=
-        '1' when C_ALU_PACKS | C_ALU_PACKSU,
-        '0' when C_ALU_PACK,
-        '-' when others;
-
-  PackUnsignedMux: with i_op select
-    s_pack_is_unsigned <=
-        '1' when C_ALU_PACKSU,
-        '0' when C_ALU_PACKS,
-        '-' when others;
-
   AluPack: entity work.pack32
     generic map (
       CONFIG => CONFIG
@@ -160,8 +144,7 @@ begin
     port map (
       i_src_a => i_src_a,
       i_src_b => i_src_b,
-      i_saturate => s_pack_is_saturated,
-      i_unsigned => s_pack_is_unsigned,
+      i_op => i_op,
       i_packed_mode => i_packed_mode,
       o_result => s_pack_res
     );
@@ -301,7 +284,8 @@ begin
         s_sel_res when C_ALU_SEL,
         s_shuf_res when C_ALU_SHUF,
         s_set_res when C_ALU_SEQ | C_ALU_SNE | C_ALU_SLT | C_ALU_SLTU | C_ALU_SLE | C_ALU_SLEU,
-        s_pack_res when C_ALU_PACK | C_ALU_PACKS | C_ALU_PACKSU,
+        s_pack_res when C_ALU_PACK | C_ALU_PACKS | C_ALU_PACKSU |
+                        C_ALU_PACKHI | C_ALU_PACKHIR | C_ALU_PACKHIUR,
         s_rev_res when C_ALU_REV,
         s_clz_res when C_ALU_CLZ,
         s_popcnt_res when C_ALU_POPCNT,

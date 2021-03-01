@@ -119,9 +119,12 @@ package types is
   constant C_ALU_SLE    : T_ALU_OP := "100010";
   constant C_ALU_SLEU   : T_ALU_OP := "100011";
 
-  constant C_ALU_PACK   : T_ALU_OP := "111010";
-  constant C_ALU_PACKS  : T_ALU_OP := "111011";
-  constant C_ALU_PACKSU : T_ALU_OP := "111100";
+  constant C_ALU_PACK     : T_ALU_OP := "111010";
+  constant C_ALU_PACKS    : T_ALU_OP := "111011";
+  constant C_ALU_PACKSU   : T_ALU_OP := "111100";
+  constant C_ALU_PACKHI   : T_ALU_OP := "111101";
+  constant C_ALU_PACKHIR  : T_ALU_OP := "111110";
+  constant C_ALU_PACKHIUR : T_ALU_OP := "111111";
 
   -- DIV operations.
   constant C_DIV_OP_SIZE : integer := 3;

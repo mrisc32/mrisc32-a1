@@ -18,7 +18,7 @@
 ----------------------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------------------
--- This entity implements the PACK, PACKS and PACKSU instructions.
+-- This entity implements the PACK, PACKS, PACKSU, PACKHI, PACKHIR and PACKHIUR instructions.
 ----------------------------------------------------------------------------------------------------
 
 library ieee;
@@ -34,17 +34,20 @@ entity pack32 is
   port(
     i_src_a       : in std_logic_vector(31 downto 0);
     i_src_b       : in std_logic_vector(31 downto 0);
-    i_saturate    : in std_logic;
-    i_unsigned    : in std_logic;
+    i_op          : in T_ALU_OP;
     i_packed_mode : in T_PACKED_MODE;
     o_result      : out std_logic_vector(31 downto 0)
   );
 end pack32;
 
 architecture rtl of pack32 is
-  constant C_PACK : std_logic_vector(1 downto 0) := "00";
-  constant C_PACKS : std_logic_vector(1 downto 0) := "10";
-  constant C_PACKSU : std_logic_vector(1 downto 0) := "11";
+  subtype T_PACK_OP is std_logic_vector(2 downto 0);
+  constant C_PACK     : T_PACK_OP := C_ALU_PACK(2 downto 0);
+  constant C_PACKS    : T_PACK_OP := C_ALU_PACKS(2 downto 0);
+  constant C_PACKSU   : T_PACK_OP := C_ALU_PACKSU(2 downto 0);
+  constant C_PACKHI   : T_PACK_OP := C_ALU_PACKHI(2 downto 0);
+  constant C_PACKHIR  : T_PACK_OP := C_ALU_PACKHIR(2 downto 0);
+  constant C_PACKHIUR : T_PACK_OP := C_ALU_PACKHIUR(2 downto 0);
 
   function extract_lo(x : std_logic_vector) return std_logic_vector is
   begin
@@ -79,30 +82,72 @@ architecture rtl of pack32 is
     end if;
   end function;
 
+  function extract_hi(x : std_logic_vector) return std_logic_vector is
+  begin
+    return x(x'left downto (x'left+1 + x'right)/2);
+  end function;
+
+  function round_hi(x : std_logic_vector) return std_logic_vector is
+    constant C_SIZE : integer := x'length / 2 + 1;
+    variable v_hi : signed(C_SIZE-1 downto 0);
+    variable v_hi_plus1 : signed(C_SIZE-1 downto 0);
+  begin
+    v_hi := signed(x(x'left downto (x'left+1 + x'right)/2-1));
+    v_hi_plus1 := v_hi + 1;
+    if v_hi(C_SIZE-1) = '0' and v_hi_plus1(C_SIZE-1) = '1' then
+      return std_logic_vector(v_hi(C_SIZE-1 downto 1));  -- Overflow
+    else
+      return std_logic_vector(v_hi_plus1(C_SIZE-1 downto 1));
+    end if;
+  end function;
+
+  function round_hi_unsigned(x : std_logic_vector) return std_logic_vector is
+    constant C_SIZE : integer := x'length / 2 + 1;
+    variable v_hi : unsigned(C_SIZE-1 downto 0);
+    variable v_hi_plus1 : unsigned(C_SIZE-1 downto 0);
+  begin
+    v_hi := unsigned(x(x'left downto (x'left+1 + x'right)/2-1));
+    v_hi_plus1 := v_hi + 1;
+    if v_hi(C_SIZE-1) = '1' and v_hi_plus1(C_SIZE-1) = '0' then
+      return std_logic_vector(v_hi(C_SIZE-1 downto 1));  -- Overflow
+    else
+      return std_logic_vector(v_hi_plus1(C_SIZE-1 downto 1));
+    end if;
+  end function;
+
   function pack(a : std_logic_vector; b : std_logic_vector;
-                op : std_logic_vector) return std_logic_vector is
+                op : T_PACK_OP) return std_logic_vector is
   begin
     if op = C_PACKS then
       return saturate(a) & saturate(b);
     elsif op = C_PACKSU then
       return saturate_unsigned(a) & saturate_unsigned(b);
+    elsif op = C_PACKHI then
+      return extract_hi(a) & extract_hi(b);
+    elsif op = C_PACKHIR then
+      return round_hi(a) & round_hi(b);
+    elsif op = C_PACKHIUR then
+      return round_hi_unsigned(a) & round_hi_unsigned(b);
     else
+      -- C_PACK
       return extract_lo(a) & extract_lo(b);
     end if;
   end function;
 begin
   PACKED_GEN: if CONFIG.HAS_PO generate
-    signal s_op : std_logic_vector(1 downto 0);
+    signal s_op : T_PACK_OP;
     signal s_res_32 : std_logic_vector(31 downto 0);
     signal s_res_16 : std_logic_vector(31 downto 0);
     signal s_res_8 : std_logic_vector(31 downto 0);
   begin
     SAT_GEN: if CONFIG.HAS_SA generate
       -- Select operation (map to C_PACK, C_PACKS or C_PACKSU).
-      s_op <= i_saturate & i_unsigned;
+      s_op <= i_op(2 downto 0);
     else generate
-      -- Without support for saturating operations, we only implement PACK.
-      s_op <= C_PACK;
+      -- Without support for saturating operations, we only implement PACK and PACKHI.
+      s_op <= C_PACK when i_op = C_ALU_PACK else
+              C_PACKHI when i_op = C_ALU_PACKHI else
+              (others => '-');
     end generate;
 
     -- 32-bit pack.
