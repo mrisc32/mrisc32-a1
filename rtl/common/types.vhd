@@ -98,9 +98,9 @@ package types is
   constant C_ALU_OR     : T_ALU_OP := "010001";
   constant C_ALU_XOR    : T_ALU_OP := "010010";
 
-  constant C_ALU_ASR    : T_ALU_OP := "010011";
-  constant C_ALU_LSL    : T_ALU_OP := "010100";
-  constant C_ALU_LSR    : T_ALU_OP := "010101";
+  constant C_ALU_EBF    : T_ALU_OP := "010011";
+  constant C_ALU_EBFU   : T_ALU_OP := "010100";
+  constant C_ALU_MKBF   : T_ALU_OP := "010101";
 
   constant C_ALU_ADD    : T_ALU_OP := "010110";
   constant C_ALU_SUB    : T_ALU_OP := "010111";

@@ -223,14 +223,14 @@ begin
   -- bit of i_op.
   ShiftIsRightMux: with i_op select
     s_shift_is_right <=
-        '1' when C_ALU_LSR | C_ALU_ASR,
-        '0' when C_ALU_LSL,
+        '1' when C_ALU_EBF | C_ALU_EBFU,
+        '0' when C_ALU_MKBF,
         '-' when others;
 
   ShiftIsArithmeticMux: with i_op select
     s_shift_is_arithmetic <=
-        '1' when C_ALU_ASR,
-        '0' when C_ALU_LSL | C_ALU_LSR,
+        '1' when C_ALU_EBF,
+        '0' when C_ALU_EBFU | C_ALU_MKBF,
         '-' when others;
 
   AluShifter: entity work.shift32
@@ -241,7 +241,7 @@ begin
       i_right => s_shift_is_right,
       i_arithmetic => s_shift_is_arithmetic,
       i_src => i_src_a,
-      i_shift => i_src_b,
+      i_ctrl => i_src_b,
       i_packed_mode => i_packed_mode,
       o_result => s_shifter_res
     );
@@ -274,7 +274,7 @@ begin
         s_and_res when C_ALU_AND,
         s_or_res  when C_ALU_OR,
         s_xor_res when C_ALU_XOR,
-        s_shifter_res when C_ALU_LSR | C_ALU_ASR | C_ALU_LSL,
+        s_shifter_res when C_ALU_EBF | C_ALU_EBFU | C_ALU_MKBF,
         s_add_res when C_ALU_ADD,
         s_sub_res when C_ALU_SUB,
         s_min_res when C_ALU_MIN,
