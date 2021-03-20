@@ -295,9 +295,9 @@ begin
   s_is_mem_store <= s_is_mem_op and s_mem_op(3);
 
   -- Explicitly decode LDLI, LDHI and ADDPCHI (we use these flags to map them to ALU operations).
-  s_is_ldli    <= '1' when s_op_high = "110000" else '0';
-  s_is_ldhi    <= '1' when s_op_high = "110001" else '0';
-  s_is_addpchi <= '1' when s_op_high = "110011" else '0';
+  s_is_ldli    <= '1' when s_op_high = "110010" else '0';
+  s_is_ldhi    <= '1' when s_op_high = "110011" else '0';
+  s_is_addpchi <= '1' when s_op_high = "110110" else '0';
 
   -- Is this a two-operand operation?
   s_func <= i_instr(14 downto 9) when s_is_type_b = '1' else (others => '0');
@@ -415,7 +415,7 @@ begin
   --------------------------------------------------------------------------------------------------
 
   -- Unconditional branch: J, JL
-  s_is_unconditional_branch <= (not i_bubble) when s_op_high(5 downto 1) = "11010" else '0';
+  s_is_unconditional_branch <= (not i_bubble) when s_op_high(5 downto 1) = "11000" else '0';
   s_is_link_branch <= s_is_unconditional_branch and s_op_high(0);
 
   -- Conditional branch: B[cc]
