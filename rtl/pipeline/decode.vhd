@@ -99,12 +99,15 @@ entity decode is
 end decode;
 
 architecture rtl of decode is
+  type IMM_TYPE_T is (IMM15, IMM21, IMM21x4);
+
   -- Instruction decode signals.
   signal s_op_high : std_logic_vector(5 downto 0);
   signal s_op_low : std_logic_vector(6 downto 0);
   signal s_reg_a : std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
   signal s_reg_b : std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
   signal s_reg_c : std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
+  signal s_imm_type : IMM_TYPE_T;
   signal s_imm_from_instr : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_imm : std_logic_vector(C_WORD_SIZE-1 downto 0);
 
@@ -143,7 +146,6 @@ architecture rtl of decode is
   signal s_branch_condition : T_BRANCH_COND;
   signal s_branch_offset : std_logic_vector(20 downto 0);
 
-  signal s_mem_op_type : std_logic_vector(1 downto 0);
   signal s_is_mem_op : std_logic;
   signal s_is_mem_store : std_logic;
 
@@ -158,6 +160,8 @@ architecture rtl of decode is
 
   signal s_is_ldli : std_logic;
   signal s_is_ldhi : std_logic;
+  signal s_is_ldwpc : std_logic;
+  signal s_is_stwpc : std_logic;
   signal s_is_addpchi : std_logic;
 
   signal s_is_type_b_alu : std_logic;
@@ -208,17 +212,26 @@ architecture rtl of decode is
   signal s_fpu_en_masked : std_logic;
   signal s_is_branch_masked : std_logic;
 
-  function decode_immediate(instr : std_logic_vector; is_type_d : std_logic) return std_logic_vector is
+  function decode_immediate(instr : std_logic_vector; imm_type : IMM_TYPE_T) return std_logic_vector is
     variable v_result : std_logic_vector(C_WORD_SIZE-1 downto 0);
   begin
-    if is_type_d = '1' then
-      -- Type D immediate value: sign extended 21-bit value.
+    if imm_type = IMM21 then
+      -- Sign extended 21-bit value.
       if instr(20) = '1' then
         v_result(31 downto 21) := "11111111111";
       else
         v_result(31 downto 21) := "00000000000";
       end if;
       v_result(20 downto 0) := instr(20 downto 0);
+    elsif imm_type = IMM21x4 then
+      -- Sign extended 21-bit value and multiply by 4.
+      if instr(20) = '1' then
+        v_result(31 downto 23) := "111111111";
+      else
+        v_result(31 downto 23) := "000000000";
+      end if;
+      v_result(22 downto 2) := instr(20 downto 0);
+      v_result(1 downto 0) := "00";
     else
       -- Type C immediate value: hi/lo 14-bit value.
       if instr(14) = '0' then
@@ -275,8 +288,19 @@ begin
   s_is_type_d <= '1' when s_op_high(5 downto 3) = "110" and s_op_high(2 downto 0) /= "111" else '0';
   s_is_type_e <= '1' when s_op_high = "110111" else '0';
 
+  -- Explicitly decode some specific instructions (we use these flags to
+  -- control various things, such as which ALU operation to use).
+  s_is_ldli    <= '1' when s_op_high = "110010" else '0';
+  s_is_ldhi    <= '1' when s_op_high = "110011" else '0';
+  s_is_ldwpc   <= '1' when s_op_high = "110100" else '0';
+  s_is_stwpc   <= '1' when s_op_high = "110101" else '0';
+  s_is_addpchi <= '1' when s_op_high = "110110" else '0';
+
   -- Extract immediate.
-  s_imm_from_instr <= decode_immediate(i_instr, s_is_type_d);
+  s_imm_type <= IMM21x4 when s_is_ldwpc = '1' or s_is_stwpc = '1' else
+                IMM21 when s_is_type_d = '1' else
+                IMM15;
+  s_imm_from_instr <= decode_immediate(i_instr, s_imm_type);
 
   -- Extract register numbers.
   s_reg_a <= i_instr(20 downto 16);
@@ -284,20 +308,25 @@ begin
   s_reg_c <= i_instr(25 downto 21);  -- Usually destination, somtimes source.
 
   -- Determine MEM operation.
-  s_mem_op_type(0) <= s_is_type_a when (s_op_low(6 downto 4) = "000") and (s_op_low(3 downto 0) /= "0000") else '0';
-  s_mem_op_type(1) <= s_is_type_c when (s_op_high(5 downto 4) = "00") else '0';
-  MemOpMux: with s_mem_op_type select
-    s_mem_op <=
-        s_op_low(3 downto 0) when "01",    -- Addr = reg + reg
-        s_op_high(3 downto 0) when "10",   -- Addr = reg + imm
-        (others => '0') when others;
-  s_is_mem_op <= s_mem_op_type(0) or s_mem_op_type(1);
+  process (s_is_ldwpc, s_is_stwpc, s_is_type_a, s_is_type_c, s_op_low, s_op_high)
+    variable v_is_mem_op : std_logic;
+  begin
+    v_is_mem_op := '1';
+    if s_is_ldwpc = '1' then
+      s_mem_op <= C_MEM_OP_LOAD32;
+    elsif s_is_stwpc = '1' then
+      s_mem_op <= C_MEM_OP_STORE32;
+    elsif s_is_type_a = '1' and (s_op_low(6 downto 4) = "000") and (s_op_low(3 downto 0) /= "0000") then
+      s_mem_op <= s_op_low(3 downto 0);
+    elsif s_is_type_c = '1' and (s_op_high(5 downto 4) = "00") then
+      s_mem_op <= s_op_high(3 downto 0);
+    else
+      s_mem_op <= C_MEM_OP_NONE;
+      v_is_mem_op := '0';
+    end if;
+    s_is_mem_op <= v_is_mem_op;
+  end process;
   s_is_mem_store <= s_is_mem_op and s_mem_op(3);
-
-  -- Explicitly decode LDLI, LDHI and ADDPCHI (we use these flags to map them to ALU operations).
-  s_is_ldli    <= '1' when s_op_high = "110010" else '0';
-  s_is_ldhi    <= '1' when s_op_high = "110011" else '0';
-  s_is_addpchi <= '1' when s_op_high = "110110" else '0';
 
   -- Is this a two-operand operation?
   s_func <= i_instr(14 downto 9) when s_is_type_b = '1' else (others => '0');
@@ -452,8 +481,9 @@ begin
 
   -- Select source data that the RF stage should pass to the EX stage.
   -- Note 1: For linking branches we use the ALU to calculate PC + 4.
-  -- Note 2: For ADDPCHI we use the ALU to calculate PC + (imm21 << 11).
-  s_src_a_mode <= C_SRC_A_PC when (s_is_link_branch or s_is_addpchi) = '1' else
+  -- Note 2: For LDWPC/STWPC we use PC as the base address in the AGU.
+  -- Note 3: For ADDPCHI we use the ALU to calculate PC + (imm21 << 11).
+  s_src_a_mode <= C_SRC_A_PC when (s_is_link_branch or s_is_addpchi or s_is_ldwpc or s_is_stwpc) = '1' else
                   C_SRC_A_REG;
   s_src_b_mode <= C_SRC_B_REG when s_is_type_a = '1' and s_is_link_branch = '0' else
                   C_SRC_B_IMM;
