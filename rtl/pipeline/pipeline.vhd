@@ -88,6 +88,7 @@ architecture rtl of pipeline is
   signal s_id_reg_c_required : std_logic;
   signal s_id_src_a_mode : T_SRC_A_MODE;
   signal s_id_src_b_mode : T_SRC_B_MODE;
+  signal s_id_src_c_mode : T_SRC_C_MODE;
   signal s_id_pc : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_id_imm : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_id_is_first_vector_op_cycle : std_logic;
@@ -319,6 +320,7 @@ begin
       o_reg_c_required => s_id_reg_c_required,
       o_src_a_mode => s_id_src_a_mode,
       o_src_b_mode => s_id_src_b_mode,
+      o_src_c_mode => s_id_src_c_mode,
       o_pc => s_id_pc,
       o_imm => s_id_imm,
       o_is_first_vector_op_cycle => s_id_is_first_vector_op_cycle,
@@ -379,6 +381,7 @@ begin
       i_reg_c_required => s_id_reg_c_required,
       i_src_a_mode => s_id_src_a_mode,
       i_src_b_mode => s_id_src_b_mode,
+      i_src_c_mode => s_id_src_c_mode,
       i_pc => s_id_pc,
       i_imm => s_id_imm,
       i_is_first_vector_op_cycle => s_id_is_first_vector_op_cycle,

@@ -74,6 +74,7 @@ entity decode is
     o_reg_c_required : out std_logic;
     o_src_a_mode : out T_SRC_A_MODE;
     o_src_b_mode : out T_SRC_B_MODE;
+    o_src_c_mode : out T_SRC_C_MODE;
     o_pc : out std_logic_vector(C_WORD_SIZE-1 downto 0);
     o_imm : out std_logic_vector(C_WORD_SIZE-1 downto 0);
     o_is_first_vector_op_cycle : out std_logic;
@@ -107,6 +108,7 @@ architecture rtl of decode is
   signal s_reg_a : std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
   signal s_reg_b : std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
   signal s_reg_c : std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
+  signal s_src_c_is_pc : std_logic;
   signal s_imm_type : IMM_TYPE_T;
   signal s_imm_from_instr : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_imm : std_logic_vector(C_WORD_SIZE-1 downto 0);
@@ -180,6 +182,7 @@ architecture rtl of decode is
   signal s_reg_c_required : std_logic;
   signal s_src_a_mode : T_SRC_A_MODE;
   signal s_src_b_mode : T_SRC_B_MODE;
+  signal s_src_c_mode : T_SRC_C_MODE;
   signal s_dst_reg : T_DST_REG;
   signal s_alu_op : T_ALU_OP;
   signal s_mem_op : T_MEM_OP;
@@ -307,6 +310,11 @@ begin
   s_reg_b <= i_instr(13 downto 9);
   s_reg_c <= i_instr(25 downto 21);  -- Usually destination, somtimes source.
 
+  -- Special re-mapping of register S31 to PC for J/JL instructions.
+  s_src_c_is_pc <= '1' when s_op_high(5 downto 1) = "11000" and
+                            s_reg_c = to_vector(C_PC_REG, C_LOG2_NUM_REGS) else
+                   '0';
+
   -- Determine MEM operation.
   process (s_is_ldwpc, s_is_stwpc, s_is_type_a, s_is_type_c, s_op_low, s_op_high)
     variable v_is_mem_op : std_logic;
@@ -366,7 +374,7 @@ begin
   -- What source registers are required for this operation?
   s_reg_a_required <= s_is_type_a or s_is_type_b or s_is_type_c;
   s_reg_b_required <= s_is_type_a;
-  s_reg_c_required <= s_is_three_src_op or s_is_branch;
+  s_reg_c_required <= (s_is_three_src_op or s_is_branch) and not s_src_c_is_pc;
 
   -- Is this a stride offset or regular offset memory addressing mode instruction?
   s_address_offset_is_stride <= s_is_vector_stride_mem_op;
@@ -481,12 +489,15 @@ begin
 
   -- Select source data that the RF stage should pass to the EX stage.
   -- Note 1: For linking branches we use the ALU to calculate PC + 4.
-  -- Note 2: For LDWPC/STWPC we use PC as the base address in the AGU.
-  -- Note 3: For ADDPCHI we use the ALU to calculate PC + (imm21 << 11).
+  -- Note 2: For ADDPCHI we use the ALU to calculate PC + (imm21 << 11).
+  -- Note 3: For LDWPC/STWPC we use PC as the base address in the AGU.
+  -- Note 4: For J/JL we replace S31 by PC (instead of VL).
   s_src_a_mode <= C_SRC_A_PC when (s_is_link_branch or s_is_addpchi or s_is_ldwpc or s_is_stwpc) = '1' else
                   C_SRC_A_REG;
   s_src_b_mode <= C_SRC_B_REG when s_is_type_a = '1' and s_is_link_branch = '0' else
                   C_SRC_B_IMM;
+  s_src_c_mode <= C_SRC_C_PC when s_src_c_is_pc = '1' else
+                  C_SRC_C_REG;
 
   -- Select destination register.
   -- Note: For linking branches we set the target register to LR.
@@ -496,9 +507,7 @@ begin
 
   -- Will this instruction write to a register?
   -- The following registers are the MRISC32 versions of /dev/null: z, vz and pc.
-  s_dst_reg.is_target <= '1' when ((s_dst_reg.reg /= to_vector(C_Z_REG, C_LOG2_NUM_REGS)) and
-                                   (s_dst_reg.reg /= to_vector(C_PC_REG, C_LOG2_NUM_REGS) or
-                                    s_dst_reg.is_vector = '1')) else '0';
+  s_dst_reg.is_target <= '1' when s_dst_reg.reg /= to_vector(C_Z_REG, C_LOG2_NUM_REGS) else '0';
 
   -- Select target vector element.
   s_dst_reg.element <= s_element_c when s_reg_c_is_vector = '1' else (others => '0');
@@ -603,6 +612,7 @@ begin
       o_reg_c_required <= '0';
       o_src_a_mode <= (others => '0');
       o_src_b_mode <= (others => '0');
+      o_src_c_mode <= (others => '0');
       o_pc <= (others => '0');
       o_imm <= (others => '0');
       o_is_first_vector_op_cycle <= '0';
@@ -646,6 +656,7 @@ begin
         o_reg_c_required <= s_reg_c_required_masked;
         o_src_a_mode <= s_src_a_mode;
         o_src_b_mode <= s_src_b_mode;
+        o_src_c_mode <= s_src_c_mode;
         o_pc <= i_pc;
         o_imm <= s_imm;
         o_is_first_vector_op_cycle <= s_is_first_vector_op_cycle;

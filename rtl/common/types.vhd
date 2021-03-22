@@ -53,6 +53,10 @@ package types is
   constant C_SRC_B_REG : T_SRC_B_MODE := "0";
   constant C_SRC_B_IMM : T_SRC_B_MODE := "1";
 
+  subtype T_SRC_C_MODE is std_logic_vector(0 downto 0);
+  constant C_SRC_C_REG : T_SRC_C_MODE := "0";
+  constant C_SRC_C_PC : T_SRC_C_MODE := "1";
+
 
   ------------------------------------------------------------------------------------------------
   -- Packed opertaion modes.

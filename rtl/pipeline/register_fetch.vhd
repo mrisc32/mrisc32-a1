@@ -64,6 +64,7 @@ entity register_fetch is
     i_reg_c_required : in std_logic;
     i_src_a_mode : in T_SRC_A_MODE;
     i_src_b_mode : in T_SRC_B_MODE;
+    i_src_c_mode : in T_SRC_C_MODE;
     i_pc : in std_logic_vector(C_WORD_SIZE-1 downto 0);
     i_imm : in std_logic_vector(C_WORD_SIZE-1 downto 0);
     i_is_first_vector_op_cycle : in std_logic;
@@ -241,8 +242,7 @@ begin
       o_data_b => s_reg_b_data,
       o_data_c => s_reg_c_data,
       i_wr_port => i_wb_dst_reg,
-      i_data_w => i_wb_data_w,
-      i_pc => i_pc
+      i_data_w => i_wb_data_w
     );
 
 
@@ -290,7 +290,10 @@ begin
                       i_imm           when C_SRC_B_IMM,
                       (others => '-') when others;
 
-  s_src_c_data <= s_reg_c_data;
+  SrcCMux: with i_src_c_mode select
+      s_src_c_data <= s_reg_c_data    when C_SRC_C_REG,
+                      i_pc            when C_SRC_C_PC,
+                      (others => '-') when others;
 
   -- Select data from decoding / register file or operand forwarding.
   s_src_a <= i_reg_a_fwd_value when i_reg_a_fwd_use_value = '1' else s_src_a_data;

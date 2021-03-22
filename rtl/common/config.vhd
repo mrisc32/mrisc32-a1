@@ -53,9 +53,12 @@ package config is
   -- broken.
   ------------------------------------------------------------------------------------------------
   constant C_Z_REG  : integer := 0;   -- Z  = S0
-  constant C_VL_REG : integer := 29;  -- VL = S29
   constant C_LR_REG : integer := 30;  -- LR = S30
-  constant C_PC_REG : integer := 31;  -- PC = S31
+  constant C_VL_REG : integer := 31;  -- VL = S31
+
+  -- For some instructions S31 is interpreted as PC rather than VL.
+  constant C_PC_REG : integer := 31;
+
 
   --------------------------------------------------------------------------------------------------
   -- Per-core configuration parameters (pass these when instantiating the core entity).

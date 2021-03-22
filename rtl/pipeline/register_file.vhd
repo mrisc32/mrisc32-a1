@@ -29,8 +29,7 @@ use work.config.all;
 --  * There are three generic read ports.
 --  * There is a single write port.
 --  * Reading the Z or VZ registers always returns zero (0).
---  * Reading the PC register returns the current PC (from the input i_pc).
---  * Writing to the Z, VZ or PC registers has no effect (no operation).
+--  * Writing to the Z or VZ registers has no effect (no operation).
 --  * Register content is undefined after reset.
 ---------------------------------------------------------------------------------------------------
 
@@ -55,10 +54,7 @@ entity register_file is
 
     -- We have one write port.
     i_wr_port : in T_DST_REG;
-    i_data_w : in std_logic_vector(C_WORD_SIZE-1 downto 0);
-
-    -- The PC register always returns the current PC.
-    i_pc : in std_logic_vector(C_WORD_SIZE-1 downto 0)
+    i_data_w : in std_logic_vector(C_WORD_SIZE-1 downto 0)
   );
 end register_file;
 
@@ -76,8 +72,7 @@ begin
       i_rd_port => i_rd_port_a,
       o_data => o_data_a,
       i_wr_port => i_wr_port,
-      i_data_w => i_data_w,
-      i_pc => i_pc
+      i_data_w => i_data_w
     );
 
   -- Read port B.
@@ -92,8 +87,7 @@ begin
       i_rd_port => i_rd_port_b,
       o_data => o_data_b,
       i_wr_port => i_wr_port,
-      i_data_w => i_data_w,
-      i_pc => i_pc
+      i_data_w => i_data_w
     );
 
   -- Read port C.
@@ -108,7 +102,6 @@ begin
       i_rd_port => i_rd_port_c,
       o_data => o_data_c,
       i_wr_port => i_wr_port,
-      i_data_w => i_data_w,
-      i_pc => i_pc
+      i_data_w => i_data_w
     );
 end rtl;
