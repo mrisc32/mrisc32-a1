@@ -72,7 +72,6 @@ architecture rtl of core is
   signal s_instr_dat : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_instr_ack : std_logic;
   signal s_instr_stall : std_logic;
-  signal s_instr_err : std_logic;
 
   -- Pipeline data bus master signals.
   signal s_data_cyc : std_logic;
@@ -105,7 +104,6 @@ begin
       i_instr_dat => s_instr_dat,
       i_instr_ack => s_instr_ack,
       i_instr_stall => s_instr_stall,
-      i_instr_err => s_instr_err,
 
       -- Data interface.
       o_data_cyc => s_data_cyc,
@@ -144,7 +142,6 @@ begin
       o_instr_dat => s_instr_dat,
       o_instr_ack => s_instr_ack,
       o_instr_stall => s_instr_stall,
-      o_instr_err => s_instr_err,
 
       -- To external memory.
       o_mem_cyc => o_imem_cyc,

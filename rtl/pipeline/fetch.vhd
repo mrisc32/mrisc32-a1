@@ -35,8 +35,8 @@
 --   - Handling of the WB interface (i_wb_stall & i_wb_ack in particular).
 --     - The pending WB cycle must be finished before changes to the data flow (i.e. i_pccorr_*
 --       and i_cancel) can be applied. Thus, i_pccorr_adjust and i_pccorr_adjusted_pc must be
---       latched until i_wb_ack or i_wb_err has arrived (correction can be applied immediately if
---       i_wb_stall is high).
+--       latched until i_wb_ack has arrived (correction can be applied immediately if i_wb_stall
+--       is high).
 --   - Handling of i_pccorr signals.
 --     - PC corrections must be latched if the IF1 stage is stalled.
 ----------------------------------------------------------------------------------------------------
@@ -72,7 +72,6 @@ entity fetch is
     i_wb_dat : in std_logic_vector(C_WORD_SIZE-1 downto 0);
     i_wb_ack : in std_logic;
     i_wb_stall : in std_logic;
-    i_wb_err : in std_logic;
 
     -- To ID stage (sync).
     o_pc : out std_logic_vector(C_WORD_SIZE-1 downto 0);

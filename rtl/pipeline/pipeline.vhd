@@ -43,7 +43,6 @@ entity pipeline is
     i_instr_dat : in std_logic_vector(C_WORD_SIZE-1 downto 0);
     i_instr_ack : in std_logic;
     i_instr_stall : in std_logic;
-    i_instr_err : in std_logic;
 
     -- Data memory interface (Wishbone master).
     o_data_cyc : out std_logic;
@@ -255,7 +254,6 @@ begin
       i_wb_dat => i_instr_dat,
       i_wb_ack => i_instr_ack,
       i_wb_stall => i_instr_stall,
-      i_wb_err => i_instr_err,
 
       -- To ID stage (sync).
       o_pc => s_if_pc,

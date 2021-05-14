@@ -37,7 +37,6 @@ entity icache is
     o_instr_dat : out std_logic_vector(C_WORD_SIZE-1 downto 0);
     o_instr_ack : out std_logic;
     o_instr_stall : out std_logic;
-    o_instr_err : out std_logic;
 
     -- Memory interface (WB master).
     o_mem_cyc : out std_logic;
@@ -61,5 +60,5 @@ begin
   o_instr_dat <= i_mem_dat;
   o_instr_ack <= i_mem_ack;
   o_instr_stall <= i_mem_stall;
-  o_instr_err <= i_mem_err;
+  -- TODO(m): Handle i_mem_err.
 end rtl;
