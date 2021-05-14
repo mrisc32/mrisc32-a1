@@ -86,6 +86,8 @@ begin
     port map (
       i_src_a => s_flt32_a,
       i_src_b => s_flt32_b,
+      i_props_a => s_props_a,
+      i_props_b => s_props_b,
       o_magn_lt => s_magn_a_lt_magn_b
     );
 
