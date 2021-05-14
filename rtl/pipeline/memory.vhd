@@ -87,8 +87,6 @@ architecture rtl of memory is
   signal s_m2_wb_ack : std_logic;
   signal s_m2_wb_dat : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_m2_pending_ack : std_logic;
-
-  signal s_waiting_for_wb : std_logic;
 begin
   ------------------------------------------------------------------------------
   -- M1: First pipeline stage.

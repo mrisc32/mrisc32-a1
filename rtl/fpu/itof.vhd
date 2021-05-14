@@ -79,7 +79,6 @@ architecture rtl of itof is
   signal s_f1_exponent_biased : unsigned(EXP_BITS+1 downto 0);
 
   -- F2 signals.
-  signal s_f2_int_shifted : unsigned(WIDTH-1 downto 0);
   signal s_f2_significand_rounded : unsigned(SIGNIFICAND_BITS+1 downto 0);
   signal s_f2_exponent_adjust : unsigned(0 downto 0);
   signal s_f2_next_significand : unsigned(SIGNIFICAND_BITS-1 downto 0);

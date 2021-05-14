@@ -182,7 +182,6 @@ architecture rtl of execute is
   -- Signals from the EX2 to the EX3 stage (async).
   signal s_ex2_next_result : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_ex2_next_result_ready : std_logic;
-  signal s_ex2_next_dst_reg : T_DST_REG;
 
   -- Signals from the EX2 to the EX3 stage (sync).
   signal s_ex2_result : std_logic_vector(C_WORD_SIZE-1 downto 0);
@@ -192,7 +191,6 @@ architecture rtl of execute is
   -- Signals from the EX3 to the EX4 stage (async).
   signal s_ex3_next_result : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_ex3_next_result_ready : std_logic;
-  signal s_ex3_next_dst_reg : T_DST_REG;
 
   -- Signals from the EX3 to the EX4 stage (sync).
   signal s_ex3_result : std_logic_vector(C_WORD_SIZE-1 downto 0);

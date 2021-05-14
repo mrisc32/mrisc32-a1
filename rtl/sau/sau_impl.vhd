@@ -74,8 +74,6 @@ architecture rtl of sau_impl is
   signal s_saturate_result : std_logic_vector(WIDTH-1 downto 0);
   signal s_halve_result : std_logic_vector(WIDTH-1 downto 0);
 
-  signal s_s2_next_result : std_logic_vector(WIDTH-1 downto 0);
-
   function min_unsigned(size: integer) return std_logic_vector is
   begin
     return std_logic_vector(to_unsigned(0, size));

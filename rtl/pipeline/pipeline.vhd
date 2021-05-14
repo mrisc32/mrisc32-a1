@@ -198,11 +198,6 @@ architecture rtl of pipeline is
   signal s_ex4_next_dst_reg : T_DST_REG;
   signal s_ex4_next_result : std_logic_vector(C_WORD_SIZE-1 downto 0);
 
-  -- Instruction Wishbone master signals.
-  signal s_pc_wb_adr : std_logic_vector(C_WORD_SIZE-1 downto 2);
-  signal s_if_wb_dat : std_logic_vector(C_WORD_SIZE-1 downto 0);
-  signal s_if_wb_ack : std_logic;
-
   -- Operand forwarding signals.
   signal s_vl_fwd_value : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_vl_fwd_use_value : std_logic;
