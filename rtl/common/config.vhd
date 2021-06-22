@@ -52,11 +52,11 @@ package config is
   -- NOTE: Changing these values should be possible, but it has not been tested so it may be
   -- broken.
   ------------------------------------------------------------------------------------------------
-  constant C_Z_REG  : integer := 0;   -- Z  = S0
-  constant C_LR_REG : integer := 30;  -- LR = S30
-  constant C_VL_REG : integer := 31;  -- VL = S31
+  constant C_Z_REG  : integer := 0;   -- Z  = R0
+  constant C_LR_REG : integer := 30;  -- LR = R30
+  constant C_VL_REG : integer := 31;  -- VL = R31
 
-  -- For some instructions S31 is interpreted as PC rather than VL.
+  -- For some instructions R31 is interpreted as PC rather than VL.
   constant C_PC_REG : integer := 31;
 
 

@@ -310,7 +310,7 @@ begin
   s_reg_b <= i_instr(13 downto 9);
   s_reg_c <= i_instr(25 downto 21);  -- Usually destination, somtimes source.
 
-  -- Special re-mapping of register S31 to PC for J/JL instructions.
+  -- Special re-mapping of register R31 to PC for J/JL instructions.
   s_src_c_is_pc <= '1' when s_op_high(5 downto 1) = "11000" and
                             s_reg_c = to_vector(C_PC_REG, C_LOG2_NUM_REGS) else
                    '0';
@@ -491,7 +491,7 @@ begin
   -- Note 1: For linking branches we use the ALU to calculate PC + 4.
   -- Note 2: For ADDPCHI we use the ALU to calculate PC + (imm21 << 11).
   -- Note 3: For LDWPC/STWPC we use PC as the base address in the AGU.
-  -- Note 4: For J/JL we replace S31 by PC (instead of VL).
+  -- Note 4: For J/JL we replace R31 by PC (instead of VL).
   s_src_a_mode <= C_SRC_A_PC when (s_is_link_branch or s_is_addpchi or s_is_ldwpc or s_is_stwpc) = '1' else
                   C_SRC_A_REG;
   s_src_b_mode <= C_SRC_B_REG when s_is_type_a = '1' and s_is_link_branch = '0' else
