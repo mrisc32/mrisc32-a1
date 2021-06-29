@@ -37,14 +37,14 @@ architecture behavioral of shift32_tb is
 
   function ctrl32(w: integer; o: integer) return std_logic_vector is
   begin
-    return 22x"0" & to_vector(w, 5) & to_vector(o, 5);
+    return 19x"0" & to_vector(w, 5) & "000" & to_vector(o, 5);
   end function;
 
   function ctrl16(w1: integer; o1: integer;
                   w2: integer; o2: integer) return std_logic_vector is
   begin
-    return 8x"0" & to_vector(w1, 4) & to_vector(o1, 4) &
-           8x"0" & to_vector(w2, 4) & to_vector(o2, 4);
+    return "0000" & to_vector(w1, 4) & "0000" & to_vector(o1, 4) &
+           "0000" & to_vector(w2, 4) & "0000" & to_vector(o2, 4);
   end function;
 
   function ctrl8(w1: integer; o1: integer;
@@ -52,10 +52,10 @@ architecture behavioral of shift32_tb is
                  w3: integer; o3: integer;
                  w4: integer; o4: integer) return std_logic_vector is
   begin
-    return 2x"0" & to_vector(w1, 3) & to_vector(o1, 3) &
-           2x"0" & to_vector(w2, 3) & to_vector(o2, 3) &
-           2x"0" & to_vector(w3, 3) & to_vector(o3, 3) &
-           2x"0" & to_vector(w4, 3) & to_vector(o4, 3);
+    return "0" & to_vector(w1, 3) & "0" & to_vector(o1, 3) &
+           "0" & to_vector(w2, 3) & "0" & to_vector(o2, 3) &
+           "0" & to_vector(w3, 3) & "0" & to_vector(o3, 3) &
+           "0" & to_vector(w4, 3) & "0" & to_vector(o4, 3);
   end function;
 
 begin

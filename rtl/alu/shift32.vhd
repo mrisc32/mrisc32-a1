@@ -85,9 +85,18 @@ architecture rtl of shift32 is
   end function;
 
   function decode_width(ctrl : std_logic_vector; bits : natural) return positive is
+    variable v_width_base : natural;
     variable v_width : natural;
   begin
-    v_width := to_integer(unsigned(ctrl(ctrl'right+bits*2-1 downto ctrl'right+bits)));
+    -- The width field is located at bit 8 of the control word for word- and half-word-sized
+    -- shifts, and at bit 4 for byte-sized shifts.
+    if bits >= 4 then
+      v_width_base := 8;
+    else
+      v_width_base := 4;
+    end if;
+
+    v_width := to_integer(unsigned(ctrl(ctrl'right+v_width_base+bits-1 downto ctrl'right+v_width_base)));
     if v_width = 0 then
       return 2**bits;
     end if;
