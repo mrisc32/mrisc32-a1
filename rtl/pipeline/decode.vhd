@@ -100,7 +100,7 @@ entity decode is
 end decode;
 
 architecture rtl of decode is
-  type IMM_TYPE_T is (IMM15, IMM21, IMM21x4);
+  type IMM_TYPE_T is (I15, I15HL, I21, I21X4);
 
   -- Instruction decode signals.
   signal s_op_high : std_logic_vector(5 downto 0);
@@ -166,6 +166,8 @@ architecture rtl of decode is
   signal s_is_stwpc : std_logic;
   signal s_is_addpchi : std_logic;
 
+  signal s_is_type_c_load_store : std_logic;
+
   signal s_is_type_b_alu : std_logic;
   signal s_is_type_b_fpu : std_logic;
   signal s_func : std_logic_vector(5 downto 0);
@@ -218,7 +220,7 @@ architecture rtl of decode is
   function decode_immediate(instr : std_logic_vector; imm_type : IMM_TYPE_T) return std_logic_vector is
     variable v_result : std_logic_vector(C_WORD_SIZE-1 downto 0);
   begin
-    if imm_type = IMM21 then
+    if imm_type = I21 then
       -- Sign extended 21-bit value.
       if instr(20) = '1' then
         v_result(31 downto 21) := "11111111111";
@@ -226,7 +228,7 @@ architecture rtl of decode is
         v_result(31 downto 21) := "00000000000";
       end if;
       v_result(20 downto 0) := instr(20 downto 0);
-    elsif imm_type = IMM21x4 then
+    elsif imm_type = I21X4 then
       -- Sign extended 21-bit value and multiply by 4.
       if instr(20) = '1' then
         v_result(31 downto 23) := "111111111";
@@ -235,7 +237,15 @@ architecture rtl of decode is
       end if;
       v_result(22 downto 2) := instr(20 downto 0);
       v_result(1 downto 0) := "00";
-    else
+    elsif imm_type = I15 then
+      -- Sign extended 15-bit value.
+      if instr(14) = '1' then
+        v_result(31 downto 15) := "11111111111111111";
+      else
+        v_result(31 downto 15) := "00000000000000000";
+      end if;
+      v_result(14 downto 0) := instr(14 downto 0);
+    else  -- I15HL
       -- Type C immediate value: hi/lo 14-bit value.
       if instr(14) = '0' then
         -- Low 14 bits: sign extended 14-bit value.
@@ -299,10 +309,14 @@ begin
   s_is_stwpc   <= '1' when s_op_high = "110101" else '0';
   s_is_addpchi <= '1' when s_op_high = "110110" else '0';
 
+  -- For decoding 15-bit immediate values we need to know if this is a load/store.
+  s_is_type_c_load_store <= '1' when s_op_high(5 downto 4) = "00" and s_op_high(3 downto 0) /= "0000" else '0';
+
   -- Extract immediate.
-  s_imm_type <= IMM21x4 when s_is_ldwpc = '1' or s_is_stwpc = '1' else
-                IMM21 when s_is_type_d = '1' else
-                IMM15;
+  s_imm_type <= I21X4 when s_is_ldwpc = '1' or s_is_stwpc = '1' else
+                I21 when s_is_type_d = '1' else
+                I15 when s_is_type_c_load_store = '1' else
+                I15HL;
   s_imm_from_instr <= decode_immediate(i_instr, s_imm_type);
 
   -- Extract register numbers.
