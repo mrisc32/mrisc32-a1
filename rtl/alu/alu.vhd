@@ -57,9 +57,7 @@ architecture rtl of alu is
   signal s_rev_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_clz_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_popcnt_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
-  signal s_ldli_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
-  signal s_ldhi_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
-  signal s_addhi_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
+  signal s_ldi_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
 
   -- Signals for the bitwise operations.
   signal s_bitwise_a : std_logic_vector(C_WORD_SIZE-1 downto 0);
@@ -247,22 +245,11 @@ begin
     );
 
   ------------------------------------------------------------------------------------------------
-  -- 21-bit immediate operations
+  -- Immediate operations
   ------------------------------------------------------------------------------------------------
 
-  -- C_ALU_LDLI (already sign extended by the decode step - should we do it here instead?)
-  s_ldli_res <= i_src_b;
-
-  -- C_ALU_LDHI
-  s_ldhi_res(C_WORD_SIZE-1 downto C_WORD_SIZE-21) <= i_src_b(20 downto 0);
-  s_ldhi_res(C_WORD_SIZE-22 downto 0) <= (others => i_src_b(0));
-
-  -- C_ALU_ADDHI - Add high immediate, i.e. add lower 21 bits of src_b to upper 21 bits of src_a
-  s_addhi_res(C_WORD_SIZE-1 downto C_WORD_SIZE-21) <=
-      std_logic_vector(
-          unsigned(i_src_b(20 downto 0)) + unsigned(i_src_a(C_WORD_SIZE-1 downto C_WORD_SIZE-21))
-      );
-  s_addhi_res(C_WORD_SIZE-22 downto 0) <= i_src_a(C_WORD_SIZE-22 downto 0);
+  -- C_ALU_LDI (this is just a "move" instruction, i.e. load the immediate value)
+  s_ldi_res <= i_src_b;
 
   ------------------------------------------------------------------------------------------------
   -- Select the output.
@@ -289,9 +276,7 @@ begin
         s_rev_res when C_ALU_REV,
         s_clz_res when C_ALU_CLZ,
         s_popcnt_res when C_ALU_POPCNT,
-        s_ldli_res when C_ALU_LDLI,
-        s_ldhi_res when C_ALU_LDHI,
-        s_addhi_res when C_ALU_ADDHI,
+        s_ldi_res when C_ALU_LDI,
         (others => '-') when others;
 
 end rtl;

@@ -100,7 +100,7 @@ entity decode is
 end decode;
 
 architecture rtl of decode is
-  type IMM_TYPE_T is (I15, I15HL, I21, I21X4);
+  type IMM_TYPE_T is (I15, I15HL, I21X4, I21H, I21HL);
 
   -- Instruction decode signals.
   signal s_op_high : std_logic_vector(5 downto 0);
@@ -160,10 +160,10 @@ architecture rtl of decode is
   signal s_is_div_op : std_logic;
   signal s_is_fpu_op : std_logic;
 
-  signal s_is_ldli : std_logic;
-  signal s_is_ldhi : std_logic;
+  signal s_is_ldi : std_logic;
   signal s_is_ldwpc : std_logic;
   signal s_is_stwpc : std_logic;
+  signal s_is_addpc : std_logic;
   signal s_is_addpchi : std_logic;
 
   signal s_is_type_c_load_store : std_logic;
@@ -220,24 +220,7 @@ architecture rtl of decode is
   function decode_immediate(instr : std_logic_vector; imm_type : IMM_TYPE_T) return std_logic_vector is
     variable v_result : std_logic_vector(C_WORD_SIZE-1 downto 0);
   begin
-    if imm_type = I21 then
-      -- Sign extended 21-bit value.
-      if instr(20) = '1' then
-        v_result(31 downto 21) := "11111111111";
-      else
-        v_result(31 downto 21) := "00000000000";
-      end if;
-      v_result(20 downto 0) := instr(20 downto 0);
-    elsif imm_type = I21X4 then
-      -- Sign extended 21-bit value and multiply by 4.
-      if instr(20) = '1' then
-        v_result(31 downto 23) := "111111111";
-      else
-        v_result(31 downto 23) := "000000000";
-      end if;
-      v_result(22 downto 2) := instr(20 downto 0);
-      v_result(1 downto 0) := "00";
-    elsif imm_type = I15 then
+    if imm_type = I15 then
       -- Sign extended 15-bit value.
       if instr(14) = '1' then
         v_result(31 downto 15) := "11111111111111111";
@@ -245,8 +228,8 @@ architecture rtl of decode is
         v_result(31 downto 15) := "00000000000000000";
       end if;
       v_result(14 downto 0) := instr(14 downto 0);
-    else  -- I15HL
-      -- Type C immediate value: hi/lo 14-bit value.
+    elsif imm_type = I15HL then
+      -- Hi/lo 14-bit value.
       if instr(14) = '0' then
         -- Low 14 bits: sign extended 14-bit value.
         if instr(13) = '1' then
@@ -262,6 +245,38 @@ architecture rtl of decode is
           v_result(17 downto 0) := "111111111111111111";
         else
           v_result(17 downto 0) := "000000000000000000";
+        end if;
+      end if;
+    elsif imm_type = I21X4 then
+      -- Sign extended 21-bit value and multiply by 4.
+      if instr(20) = '1' then
+        v_result(31 downto 23) := "111111111";
+      else
+        v_result(31 downto 23) := "000000000";
+      end if;
+      v_result(22 downto 2) := instr(20 downto 0);
+      v_result(1 downto 0) := "00";
+    elsif imm_type = I21H then
+      -- High 21 bits, with lowest 11 bits zero-filled.
+      v_result(31 downto 11) := instr(20 downto 0);
+      v_result(10 downto 0) := "00000000000";
+    else -- imm_type = I21HL
+      -- Hi/lo 20-bit value.
+      if instr(20) = '0' then
+        -- Low 20 bits: sign extended 20-bit value.
+        if instr(19) = '1' then
+          v_result(31 downto 20) := "111111111111";
+        else
+          v_result(31 downto 20) := "000000000000";
+        end if;
+        v_result(19 downto 0) := instr(19 downto 0);
+      else
+        -- High 20 bits, with lowest 12 bits filled with the LSB of the immediate value.
+        v_result(31 downto 12) := instr(19 downto 0);
+        if instr(0) = '1' then
+          v_result(11 downto 0) := "111111111111";
+        else
+          v_result(11 downto 0) := "000000000000";
         end if;
       end if;
     end if;
@@ -303,18 +318,19 @@ begin
 
   -- Explicitly decode some specific instructions (we use these flags to
   -- control various things, such as which ALU operation to use).
-  s_is_ldli    <= '1' when s_op_high = "110010" else '0';
-  s_is_ldhi    <= '1' when s_op_high = "110011" else '0';
-  s_is_ldwpc   <= '1' when s_op_high = "110100" else '0';
-  s_is_stwpc   <= '1' when s_op_high = "110101" else '0';
-  s_is_addpchi <= '1' when s_op_high = "110110" else '0';
+  s_is_ldwpc   <= '1' when s_op_high = "110010" else '0';
+  s_is_stwpc   <= '1' when s_op_high = "110011" else '0';
+  s_is_addpc   <= '1' when s_op_high = "110100" else '0';
+  s_is_addpchi <= '1' when s_op_high = "110101" else '0';
+  s_is_ldi     <= '1' when s_op_high = "110110" else '0';
 
   -- For decoding 15-bit immediate values we need to know if this is a load/store.
   s_is_type_c_load_store <= '1' when s_op_high(5 downto 4) = "00" and s_op_high(3 downto 0) /= "0000" else '0';
 
   -- Extract immediate.
-  s_imm_type <= I21X4 when s_is_ldwpc = '1' or s_is_stwpc = '1' else
-                I21 when s_is_type_d = '1' else
+  s_imm_type <= I21X4 when s_is_ldwpc = '1' or s_is_stwpc = '1' or s_is_addpc = '1' else
+                I21H when s_is_addpchi = '1' else
+                I21HL when s_is_ldi = '1' else
                 I15 when s_is_type_c_load_store = '1' else
                 I15HL;
   s_imm_from_instr <= decode_immediate(i_instr, s_imm_type);
@@ -500,13 +516,12 @@ begin
   s_imm <= to_word(4) when s_is_link_branch = '1' else
            s_imm_from_instr;
 
-
   -- Select source data that the RF stage should pass to the EX stage.
   -- Note 1: For linking branches we use the ALU to calculate PC + 4.
-  -- Note 2: For ADDPCHI we use the ALU to calculate PC + (imm21 << 11).
+  -- Note 2: For ADDPC(HI) we use the ALU to calculate PC + immediate.
   -- Note 3: For LDWPC/STWPC we use PC as the base address in the AGU.
   -- Note 4: For J/JL we replace R31 by PC (instead of VL).
-  s_src_a_mode <= C_SRC_A_PC when (s_is_link_branch or s_is_addpchi or s_is_ldwpc or s_is_stwpc) = '1' else
+  s_src_a_mode <= C_SRC_A_PC when (s_is_link_branch or s_is_addpc or s_is_addpchi or s_is_ldwpc or s_is_stwpc) = '1' else
                   C_SRC_A_REG;
   s_src_b_mode <= C_SRC_B_REG when s_is_type_a = '1' and s_is_link_branch = '0' else
                   C_SRC_B_IMM;
@@ -537,17 +552,11 @@ begin
 
   -- Select ALU operation.
   s_alu_op <=
-      -- Use the ALU to calculate the return address of linking branches.
-      C_ALU_ADD when s_is_link_branch = '1' else
+      -- Use the ALU for certain address additions (e.g. the return address of linking branches).
+      C_ALU_ADD when s_is_addpc = '1' or s_is_addpchi = '1' or s_is_link_branch = '1' else
 
-      -- LDLI has a special ALU op.
-      C_ALU_LDLI when s_is_ldli = '1' else
-
-      -- LDHI has a special ALU op.
-      C_ALU_LDHI when s_is_ldhi = '1' else
-
-      -- ADDPCHI has a special ALU op.
-      C_ALU_ADDHI when s_is_addpchi = '1' else
+      -- LDI has a special ALU op.
+      C_ALU_LDI when s_is_ldi = '1' else
 
       -- Use NOP for non-ALU ops and non-linking branches (they do not produce any result).
       C_ALU_CPUID when s_alu_en = '0' or (s_is_branch and not s_is_link_branch) = '1' else

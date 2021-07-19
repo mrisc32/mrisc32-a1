@@ -90,9 +90,7 @@ package types is
 
   constant C_ALU_CPUID  : T_ALU_OP := "000000";
 
-  constant C_ALU_LDLI   : T_ALU_OP := "000001";
-  constant C_ALU_LDHI   : T_ALU_OP := "000010";
-  constant C_ALU_ADDHI  : T_ALU_OP := "000100";
+  constant C_ALU_LDI    : T_ALU_OP := "000001";
 
   constant C_ALU_REV    : T_ALU_OP := "001000";  -- Two-operand (op=0x7c, func=0x00)
   constant C_ALU_CLZ    : T_ALU_OP := "001001";  -- Two-operand (op=0x7c, func=0x01)
