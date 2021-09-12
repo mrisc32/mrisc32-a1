@@ -27,6 +27,7 @@
 
 library ieee;
 use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 use work.config.all;
 
 entity branch_target_buffer is
@@ -62,6 +63,9 @@ architecture rtl of branch_target_buffer is
 
   -- Size of a branch target entry.
   constant C_ENTRY_SIZE : integer := 2 + C_WORD_SIZE-2;  -- is_valid & is_taken & target_address
+
+  signal s_invalidating : std_logic;
+  signal s_invalidate_adr : unsigned(C_LOG2_ENTRIES-1 downto 0);
 
   signal s_global_history : std_logic_vector(C_GH_BITS-1 downto 0);
 
@@ -132,7 +136,7 @@ begin
       s_prev_read_en <= '0';
       s_prev_read_pc <= (others => '0');
     elsif rising_edge(i_clk) then
-      s_prev_read_en <= i_read_en;
+      s_prev_read_en <= i_read_en and not s_invalidating;
       s_prev_read_pc <= i_read_pc;
     end if;
   end process;
@@ -159,6 +163,29 @@ begin
 
 
   --------------------------------------------------------------------------------------------------
+  -- Invalidation state machine.
+  --------------------------------------------------------------------------------------------------
+
+  process(i_clk, i_rst)
+  begin
+    if i_rst = '1' then
+      s_invalidating <= '1';
+      s_invalidate_adr <= (others => '0');
+    elsif rising_edge(i_clk) then
+      if i_invalidate = '1' then
+        s_invalidating <= '1';
+        s_invalidate_adr <= (others => '0');
+      elsif s_invalidating = '1' then
+        if s_invalidate_adr = (2**C_LOG2_ENTRIES)-1 then
+          s_invalidating <= '0';
+        end if;
+        s_invalidate_adr <= s_invalidate_adr + 1;
+      end if;
+    end if;
+  end process;
+
+
+  --------------------------------------------------------------------------------------------------
   -- Buffer lookup.
   --------------------------------------------------------------------------------------------------
 
@@ -178,9 +205,12 @@ begin
   -- Buffer update.
   --------------------------------------------------------------------------------------------------
 
-  s_we <= i_write_is_branch;
-  s_write_addr <= table_address(i_write_pc, s_global_history);
-  s_tag_write_data <= make_tag(i_write_pc);
-  s_target_write_data <= "1" & i_write_is_taken & i_write_target(C_WORD_SIZE-1 downto 2);
+  s_we <= s_invalidating or i_write_is_branch;
+  s_write_addr <= std_logic_vector(s_invalidate_adr) when s_invalidating = '1' else
+                  table_address(i_write_pc, s_global_history);
+  s_tag_write_data <= (others => '0') when s_invalidating = '1' else
+                      make_tag(i_write_pc);
+  s_target_write_data <= (others => '0') when s_invalidating = '1' else
+                         "1" & i_write_is_taken & i_write_target(C_WORD_SIZE-1 downto 2);
 end rtl;
 
