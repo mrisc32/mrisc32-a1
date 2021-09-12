@@ -395,5 +395,5 @@ begin
   end process;
 
   -- Do we need to stall the pipeline (async)?
-  o_stall <= s_missing_fwd_operand;
+  o_stall <= (not i_bubble) and s_missing_fwd_operand;
 end rtl;
