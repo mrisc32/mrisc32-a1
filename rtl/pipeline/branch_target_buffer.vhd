@@ -51,24 +51,45 @@ entity branch_target_buffer is
 end branch_target_buffer;
 
 architecture rtl of branch_target_buffer is
+  -- Number of entries in the global history buffer (0 to disable).
+  constant C_GH_BITS : integer := 0;
+
+  -- Total number of entries in the branch target buffer.
   constant C_LOG2_ENTRIES : integer := 9;  -- 512 entries.
-  constant C_TAG_SIZE : integer := C_WORD_SIZE - C_LOG2_ENTRIES;
-  constant C_TARGET_SIZE : integer := C_WORD_SIZE + 2;  -- is_valid  & is_taken & target_address
+
+  -- Size of the tag.
+  constant C_TAG_SIZE : integer := C_WORD_SIZE-2 - (C_LOG2_ENTRIES - C_GH_BITS);
+
+  -- Size of a branch target entry.
+  constant C_ENTRY_SIZE : integer := 2 + C_WORD_SIZE-2;  -- is_valid & is_taken & target_address
+
+  signal s_global_history : std_logic_vector(C_GH_BITS-1 downto 0);
 
   signal s_prev_read_en : std_logic;
   signal s_prev_read_pc : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_got_match : std_logic;
-  signal s_got_branch : std_logic;
+  signal s_got_valid : std_logic;
   signal s_got_taken : std_logic;
 
   signal s_read_addr : std_logic_vector(C_LOG2_ENTRIES-1 downto 0);
   signal s_tag_read_data : std_logic_vector(C_TAG_SIZE-1 downto 0);
-  signal s_target_read_data : std_logic_vector(C_TARGET_SIZE-1 downto 0);
+  signal s_target_read_data : std_logic_vector(C_ENTRY_SIZE-1 downto 0);
 
   signal s_write_addr : std_logic_vector(C_LOG2_ENTRIES-1 downto 0);
   signal s_we : std_logic;
   signal s_tag_write_data : std_logic_vector(C_TAG_SIZE-1 downto 0);
-  signal s_target_write_data : std_logic_vector(C_TARGET_SIZE-1 downto 0);
+  signal s_target_write_data : std_logic_vector(C_ENTRY_SIZE-1 downto 0);
+
+  function table_address(pc : std_logic_vector; gh : std_logic_vector) return std_logic_vector is
+  begin
+    return pc(C_LOG2_ENTRIES-C_GH_BITS+2-1 downto 2) & gh;
+  end function;
+
+  function make_tag(pc : std_logic_vector) return std_logic_vector is
+  begin
+    return pc(C_WORD_SIZE-1 downto C_WORD_SIZE-C_TAG_SIZE);
+  end function;
+
 begin
   -- Instantiate the tag RAM.
   tag_ram_0: entity work.ram_dual_port
@@ -92,7 +113,7 @@ begin
   -- write).
   target_ram_0: entity work.ram_dual_port
     generic map (
-      WIDTH => C_TARGET_SIZE,
+      WIDTH => C_ENTRY_SIZE,
       ADDR_BITS => C_LOG2_ENTRIES
     )
     port map (
@@ -118,19 +139,39 @@ begin
 
 
   --------------------------------------------------------------------------------------------------
+  -- Global history.
+  --------------------------------------------------------------------------------------------------
+
+  GH_GEN: if C_GH_BITS > 0 generate
+    process(i_clk, i_rst)
+    begin
+      if i_rst = '1' then
+        s_global_history <= (others => '0');
+      elsif rising_edge(i_clk) then
+        if i_invalidate = '1' then
+          s_global_history <= (others => '0');
+        elsif i_write_is_branch = '1' then
+          s_global_history <= s_global_history(C_GH_BITS-2 downto 0) & i_write_is_taken;
+        end if;
+      end if;
+    end process;
+  end generate;
+
+
+  --------------------------------------------------------------------------------------------------
   -- Buffer lookup.
   --------------------------------------------------------------------------------------------------
 
-  s_read_addr <= i_read_pc(C_LOG2_ENTRIES-1 downto 0);
+  s_read_addr <= table_address(i_read_pc, s_global_history);
 
   -- Decode the target and tag information.
-  o_predict_target <= s_target_read_data(C_WORD_SIZE-1 downto 0);
-  s_got_branch <= s_target_read_data(C_WORD_SIZE);
-  s_got_taken <= s_target_read_data(C_WORD_SIZE + 1);
-  s_got_match <= '1' when s_prev_read_pc(C_WORD_SIZE-1 downto C_LOG2_ENTRIES) = s_tag_read_data else '0';
+  o_predict_target <= s_target_read_data(C_WORD_SIZE-3 downto 0) & "00";
+  s_got_valid <= s_target_read_data(C_WORD_SIZE - 1);
+  s_got_taken <= s_target_read_data(C_WORD_SIZE - 2);
+  s_got_match <= '1' when make_tag(s_prev_read_pc) = s_tag_read_data else '0';
 
   -- Determine if we should take the branch.
-  o_predict_taken <= s_prev_read_en and s_got_match and s_got_branch and s_got_taken;
+  o_predict_taken <= s_prev_read_en and s_got_match and s_got_valid and s_got_taken;
 
 
   --------------------------------------------------------------------------------------------------
@@ -138,8 +179,8 @@ begin
   --------------------------------------------------------------------------------------------------
 
   s_we <= i_write_is_branch;
-  s_write_addr <= i_write_pc(C_LOG2_ENTRIES-1 downto 0);
-  s_tag_write_data <= i_write_pc(C_WORD_SIZE-1 downto C_LOG2_ENTRIES);
-  s_target_write_data <= i_write_is_branch & i_write_is_taken & i_write_target;
+  s_write_addr <= table_address(i_write_pc, s_global_history);
+  s_tag_write_data <= make_tag(i_write_pc);
+  s_target_write_data <= "1" & i_write_is_taken & i_write_target(C_WORD_SIZE-1 downto 2);
 end rtl;
 
