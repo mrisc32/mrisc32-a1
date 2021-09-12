@@ -122,8 +122,8 @@ begin
       i_invalidate => '0',
 
       -- Buffer lookup (sync).
-      i_read_en => s_if1_btb_read_en,
       i_read_pc => s_if1_btb_read_pc,
+      i_read_en => s_if1_btb_read_en,
       o_predict_taken => s_if1_btb_taken,
       o_predict_target => s_if1_btb_target,
 

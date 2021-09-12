@@ -23,6 +23,8 @@
 -- This is a simple direct mapped, single bit state (taken/not taken) branch target buffer. The PC
 -- provided by i_read_pc represents the PC that will be used during the next cycle in the IF stage,
 -- and the predicted target (and whether it should be taken) is provided during the next cycle.
+--
+-- Note: The two least significant bits of the PC are ignored (treated as zero).
 ----------------------------------------------------------------------------------------------------
 
 library ieee;
@@ -38,8 +40,8 @@ entity branch_target_buffer is
       i_invalidate : in std_logic;
 
       -- Buffer lookup (sync).
-      i_read_en : in std_logic;
       i_read_pc : in std_logic_vector(C_WORD_SIZE-1 downto 0);
+      i_read_en : in std_logic;
       o_predict_taken : out std_logic;
       o_predict_target : out std_logic_vector(C_WORD_SIZE-1 downto 0);
 
@@ -53,13 +55,13 @@ end branch_target_buffer;
 
 architecture rtl of branch_target_buffer is
   -- Number of entries in the global history buffer (0 to disable).
-  constant C_GH_BITS : integer := 0;
+  constant C_GHR_BITS : integer := 0;
 
   -- Total number of entries in the branch target buffer.
   constant C_LOG2_ENTRIES : integer := 9;  -- 512 entries.
 
   -- Size of the tag.
-  constant C_TAG_SIZE : integer := C_WORD_SIZE-2 - (C_LOG2_ENTRIES - C_GH_BITS);
+  constant C_TAG_SIZE : integer := C_WORD_SIZE-2 - (C_LOG2_ENTRIES - C_GHR_BITS);
 
   -- Size of a branch target entry.
   constant C_ENTRY_SIZE : integer := 1 + C_WORD_SIZE-2;  -- is_taken & target_address
@@ -67,7 +69,7 @@ architecture rtl of branch_target_buffer is
   signal s_invalidating : std_logic;
   signal s_invalidate_adr : unsigned(C_LOG2_ENTRIES-1 downto 0);
 
-  signal s_global_history : std_logic_vector(C_GH_BITS-1 downto 0);
+  signal s_global_history : std_logic_vector(C_GHR_BITS-1 downto 0);
 
   signal s_prev_read_en : std_logic;
   signal s_prev_read_pc : std_logic_vector(C_WORD_SIZE-1 downto 0);
@@ -86,7 +88,7 @@ architecture rtl of branch_target_buffer is
 
   function table_address(pc : std_logic_vector; gh : std_logic_vector) return std_logic_vector is
   begin
-    return pc(C_LOG2_ENTRIES-C_GH_BITS+2-1 downto 2) & gh;
+    return pc(C_LOG2_ENTRIES-C_GHR_BITS+2-1 downto 2) & gh;
   end function;
 
   function make_tag(pc : std_logic_vector) return std_logic_vector is
@@ -146,7 +148,7 @@ begin
   -- Global history.
   --------------------------------------------------------------------------------------------------
 
-  GH_GEN: if C_GH_BITS > 0 generate
+  GH_GEN: if C_GHR_BITS > 0 generate
     process(i_clk, i_rst)
     begin
       if i_rst = '1' then
@@ -155,7 +157,7 @@ begin
         if i_invalidate = '1' then
           s_global_history <= (others => '0');
         elsif i_write_is_branch = '1' then
-          s_global_history <= s_global_history(C_GH_BITS-2 downto 0) & i_write_is_taken;
+          s_global_history <= i_write_is_taken & s_global_history(C_GHR_BITS-1 downto 1);
         end if;
       end if;
     end process;
