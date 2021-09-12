@@ -62,7 +62,7 @@ architecture rtl of branch_target_buffer is
   constant C_TAG_SIZE : integer := C_WORD_SIZE-2 - (C_LOG2_ENTRIES - C_GH_BITS);
 
   -- Size of a branch target entry.
-  constant C_ENTRY_SIZE : integer := 2 + C_WORD_SIZE-2;  -- is_valid & is_taken & target_address
+  constant C_ENTRY_SIZE : integer := 1 + C_WORD_SIZE-2;  -- is_taken & target_address
 
   signal s_invalidating : std_logic;
   signal s_invalidate_adr : unsigned(C_LOG2_ENTRIES-1 downto 0);
@@ -193,12 +193,11 @@ begin
 
   -- Decode the target and tag information.
   o_predict_target <= s_target_read_data(C_WORD_SIZE-3 downto 0) & "00";
-  s_got_valid <= s_target_read_data(C_WORD_SIZE - 1);
   s_got_taken <= s_target_read_data(C_WORD_SIZE - 2);
   s_got_match <= '1' when make_tag(s_prev_read_pc) = s_tag_read_data else '0';
 
   -- Determine if we should take the branch.
-  o_predict_taken <= s_prev_read_en and s_got_match and s_got_valid and s_got_taken;
+  o_predict_taken <= s_prev_read_en and s_got_match and s_got_taken;
 
 
   --------------------------------------------------------------------------------------------------
@@ -211,6 +210,6 @@ begin
   s_tag_write_data <= (others => '0') when s_invalidating = '1' else
                       make_tag(i_write_pc);
   s_target_write_data <= (others => '0') when s_invalidating = '1' else
-                         "1" & i_write_is_taken & i_write_target(C_WORD_SIZE-1 downto 2);
+                         i_write_is_taken & i_write_target(C_WORD_SIZE-1 downto 2);
 end rtl;
 
