@@ -265,7 +265,7 @@ begin
   -- Branch/PC correction signals to the PC stage.
   o_pccorr_target <= s_branch_target;
   o_pccorr_source <= i_pc;
-  o_pccorr_is_branch <= i_branch_is_branch;  -- Repeated during stall!!!
+  o_pccorr_is_branch <= i_branch_is_branch;
   o_pccorr_is_taken <= s_branch_is_taken;
   o_pccorr_adjust <= s_mispredicted_pc;
   o_pccorr_adjusted_pc <= s_next_pc;

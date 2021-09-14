@@ -350,14 +350,6 @@ begin
       o_mul_en <= '0';
       o_div_en <= '0';
       o_fpu_en <= '0';
-
-      o_branch_is_branch <= '0';
-      o_branch_is_unconditional <= '0';
-      o_branch_condition <= (others => '0');
-      o_branch_offset <= (others => '0');
-      o_branch_base_expected <= (others => '0');
-      o_branch_pc_plus_4 <= (others => '0');
-
       o_bubble <= '1';
     elsif rising_edge(i_clk) then
       if i_stall = '0' then
@@ -381,15 +373,32 @@ begin
         o_mul_en <= s_mul_en_masked;
         o_div_en <= s_div_en_masked;
         o_fpu_en <= s_fpu_en_masked;
+        o_bubble <= s_bubble;
+      end if;
+    end if;
+  end process;
 
-        o_branch_is_branch <= s_branch_is_branch_masked;
+  -- Branch outputs to the EX stage (we need special handling of these).
+  process(i_clk, i_rst)
+  begin
+    if i_rst = '1' then
+      o_branch_is_branch <= '0';
+      o_branch_is_unconditional <= '0';
+      o_branch_condition <= (others => '0');
+      o_branch_offset <= (others => '0');
+      o_branch_base_expected <= (others => '0');
+      o_branch_pc_plus_4 <= (others => '0');
+    elsif rising_edge(i_clk) then
+      -- We need to guarantee that the o_branch_is_branch signal is only triggered once for each
+      -- branch, since it is used as a command.
+      o_branch_is_branch <= s_branch_is_branch_masked and not i_stall;
+
+      if i_stall = '0' then
         o_branch_is_unconditional <= s_branch_is_unconditional_masked;
         o_branch_condition <= i_branch_condition;
         o_branch_offset <= i_branch_offset;
         o_branch_base_expected <= s_branch_base_expected;
         o_branch_pc_plus_4 <= s_branch_pc_plus_4;
-
-        o_bubble <= s_bubble;
       end if;
     end if;
   end process;
