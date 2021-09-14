@@ -59,6 +59,7 @@ architecture rtl of branch_target_buffer is
 
   -- Total number of entries in the branch target buffer.
   constant C_LOG2_ENTRIES : integer := 9;  -- 512 entries.
+  constant C_NUM_ENTRIES : integer := 2**C_LOG2_ENTRIES;
 
   -- Size of the tag.
   constant C_TAG_SIZE : integer := C_WORD_SIZE-2 - (C_LOG2_ENTRIES - C_GHR_BITS);
@@ -178,7 +179,7 @@ begin
         s_invalidating <= '1';
         s_invalidate_adr <= (others => '0');
       elsif s_invalidating = '1' then
-        if s_invalidate_adr = (2**C_LOG2_ENTRIES)-1 then
+        if s_invalidate_adr = C_NUM_ENTRIES-1 then
           s_invalidating <= '0';
         end if;
         s_invalidate_adr <= s_invalidate_adr + 1;
