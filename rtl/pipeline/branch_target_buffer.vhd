@@ -20,9 +20,13 @@
 ----------------------------------------------------------------------------------------------------
 -- Branch Target Buffer
 --
--- This is a simple direct mapped, single bit state (taken/not taken) branch target buffer. The PC
--- provided by i_read_pc represents the PC that will be used during the next cycle in the IF stage,
--- and the predicted target (and whether it should be taken) is provided during the next cycle.
+-- This is a simple bi-modal branch predictor with a branch target buffer. The PC provided by
+-- i_read_pc represents the PC that will be used during the next cycle in the IF stage, and the
+-- predicted target (and whether it should be taken) is provided during the next cycle.
+--
+-- The branch predictor is guaranteed to never signal o_predict_taken if a branch instruction has
+-- not previously been seen at the given PC (if the program memory has modified, i_invalidate must
+-- be signalled to clear the predictor buffers).
 --
 -- Note: The two least significant bits of the PC are ignored (treated as zero).
 ----------------------------------------------------------------------------------------------------
@@ -67,6 +71,10 @@ architecture rtl of branch_target_buffer is
   -- Size of a branch target entry.
   constant C_ENTRY_SIZE : integer := 1 + C_WORD_SIZE-2;  -- is_taken & target_address
 
+  -- Number of bits per counter.
+  constant C_COUNTER_SIZE : integer := 2;
+  constant C_MAX_COUNT : integer := (2**C_COUNTER_SIZE) - 1;
+
   signal s_invalidating : std_logic;
   signal s_invalidate_adr : unsigned(C_LOG2_ENTRIES-1 downto 0);
 
@@ -78,14 +86,26 @@ architecture rtl of branch_target_buffer is
   signal s_got_valid : std_logic;
   signal s_got_taken : std_logic;
 
+  signal s_prev_write_is_branch : std_logic;
+  signal s_prev_write_is_taken : std_logic;
+  signal s_prev_write_addr : std_logic_vector(C_LOG2_ENTRIES-1 downto 0);
+  signal s_prev_write_tag : std_logic_vector(C_TAG_SIZE-1 downto 0);
+  signal s_prev_write_target : std_logic_vector(C_WORD_SIZE-3 downto 0);
+
   signal s_read_addr : std_logic_vector(C_LOG2_ENTRIES-1 downto 0);
   signal s_tag_read_data : std_logic_vector(C_TAG_SIZE-1 downto 0);
   signal s_target_read_data : std_logic_vector(C_ENTRY_SIZE-1 downto 0);
+
+  signal s_counter_read_addr : std_logic_vector(C_LOG2_ENTRIES-1 downto 0);
+  signal s_counter_read_data : std_logic_vector(C_COUNTER_SIZE-1 downto 0);
 
   signal s_write_addr : std_logic_vector(C_LOG2_ENTRIES-1 downto 0);
   signal s_we : std_logic;
   signal s_tag_write_data : std_logic_vector(C_TAG_SIZE-1 downto 0);
   signal s_target_write_data : std_logic_vector(C_ENTRY_SIZE-1 downto 0);
+  signal s_updated_counter : std_logic_vector(C_COUNTER_SIZE-1 downto 0);
+  signal s_counter_predicts_taken : std_logic;
+  signal s_counter_write_data : std_logic_vector(C_COUNTER_SIZE-1 downto 0);
 
   function table_address(pc : std_logic_vector; gh : std_logic_vector) return std_logic_vector is
   begin
@@ -95,6 +115,18 @@ architecture rtl of branch_target_buffer is
   function make_tag(pc : std_logic_vector) return std_logic_vector is
   begin
     return pc(C_WORD_SIZE-1 downto C_WORD_SIZE-C_TAG_SIZE);
+  end function;
+
+  function update_counter(count : std_logic_vector; is_taken : std_logic) return std_logic_vector is
+    variable v_count : unsigned(C_COUNTER_SIZE-1 downto 0);
+  begin
+    v_count := unsigned(count);
+    if is_taken = '0' and v_count > 0 then
+      v_count := v_count - 1;
+    elsif is_taken = '1' and v_count < C_MAX_COUNT then
+      v_count := v_count + 1;
+    end if;
+    return std_logic_vector(v_count);
   end function;
 
 begin
@@ -114,10 +146,6 @@ begin
     );
 
   -- Instantiate the branch target RAM.
-  -- TODO(m): Split out the meta data (is_valid & is_taken) into a separate RAM
-  -- with more flexible properties (clear on reset/invalidate and possibility
-  -- to use two-bit saturating increment/decrement operations instead of one-bit
-  -- write).
   target_ram_0: entity work.ram_dual_port
     generic map (
       WIDTH => C_ENTRY_SIZE,
@@ -130,6 +158,21 @@ begin
       i_we => s_we,
       i_read_addr => s_read_addr,
       o_read_data => s_target_read_data
+    );
+
+  -- Instantiate the branch counter RAM.
+  counter_ram_0: entity work.ram_dual_port
+    generic map (
+      WIDTH => C_COUNTER_SIZE,
+      ADDR_BITS => C_LOG2_ENTRIES
+    )
+    port map (
+      i_clk => i_clk,
+      i_write_addr => s_write_addr,
+      i_write_data => s_counter_write_data,
+      i_we => s_we,
+      i_read_addr => s_counter_read_addr,
+      o_read_data => s_counter_read_data
     );
 
   -- Internal state.
@@ -195,8 +238,8 @@ begin
   s_read_addr <= table_address(i_read_pc, s_global_history);
 
   -- Decode the target and tag information.
-  o_predict_target <= s_target_read_data(C_WORD_SIZE-3 downto 0) & "00";
-  s_got_taken <= s_target_read_data(C_WORD_SIZE - 2);
+  o_predict_target <= s_target_read_data(C_ENTRY_SIZE-2 downto 0) & "00";
+  s_got_taken <= s_target_read_data(C_ENTRY_SIZE-1);
   s_got_match <= '1' when make_tag(s_prev_read_pc) = s_tag_read_data else '0';
 
   -- Determine if we should take the branch.
@@ -204,15 +247,45 @@ begin
 
 
   --------------------------------------------------------------------------------------------------
-  -- Buffer update.
+  -- Buffer update is done during two cycles (pipelined):
+  --  1) Read the counter from the counter RAM.
+  --  2)
+  --     a) Update the counter (+ or - depending on is_taken).
+  --     b) Write the new counter to the counter RAM, and update the tag & target RAM:s.
   --------------------------------------------------------------------------------------------------
 
-  s_we <= s_invalidating or i_write_is_branch;
-  s_write_addr <= std_logic_vector(s_invalidate_adr) when s_invalidating = '1' else
-                  table_address(i_write_pc, s_global_history);
-  s_tag_write_data <= (others => '0') when s_invalidating = '1' else
-                      make_tag(i_write_pc);
-  s_target_write_data <= (others => '0') when s_invalidating = '1' else
-                         i_write_is_taken & i_write_target(C_WORD_SIZE-1 downto 2);
-end rtl;
+  process(i_clk, i_rst)
+  begin
+    if i_rst = '1' then
+      s_prev_write_is_branch <= '0';
+      s_prev_write_is_taken <= '0';
+      s_prev_write_addr <= (others => '0');
+      s_prev_write_tag <= (others => '0');
+      s_prev_write_target <= (others => '0');
+    elsif rising_edge(i_clk) then
+      s_prev_write_is_branch <= i_write_is_branch;
+      s_prev_write_is_taken <= i_write_is_taken;
+      s_prev_write_addr <= s_counter_read_addr;
+      s_prev_write_tag <= make_tag(i_write_pc);
+      s_prev_write_target <= i_write_target(C_WORD_SIZE-1 downto 2);
+    end if;
+  end process;
 
+  -- In the first cycle, read from the counter RAM.
+  s_counter_read_addr <= table_address(i_write_pc, s_global_history);
+
+  -- Update the counter, and determine if the next prediction should be taken or not.
+  s_updated_counter <= update_counter(s_counter_read_data, s_prev_write_is_taken);
+  s_counter_predicts_taken <= s_updated_counter(C_COUNTER_SIZE-1);  -- MSB of counter = predict taken
+
+  -- Prepare write operations to the different RAM:s.
+  s_we <= s_invalidating or s_prev_write_is_branch;
+  s_write_addr <= std_logic_vector(s_invalidate_adr) when s_invalidating = '1' else
+                  s_prev_write_addr;
+  s_tag_write_data <= (others => '0') when s_invalidating = '1' else
+                      s_prev_write_tag;
+  s_target_write_data <= (others => '0') when s_invalidating = '1' else
+                         s_counter_predicts_taken & s_prev_write_target;
+  s_counter_write_data <= (C_COUNTER_SIZE-1 => '0', others => '1') when s_invalidating = '1' else
+                          s_updated_counter;
+end rtl;
