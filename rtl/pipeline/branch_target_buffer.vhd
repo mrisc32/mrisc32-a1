@@ -83,7 +83,6 @@ architecture rtl of branch_target_buffer is
   signal s_prev_read_en : std_logic;
   signal s_prev_read_pc : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_got_match : std_logic;
-  signal s_got_valid : std_logic;
   signal s_got_taken : std_logic;
 
   signal s_prev_write_is_branch : std_logic;
