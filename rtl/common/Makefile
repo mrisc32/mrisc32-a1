@@ -24,5 +24,7 @@ SRCS += \
     $(COMMON_PATH)/config.vhd \
     $(COMMON_PATH)/debug.vhd \
     $(COMMON_PATH)/ram_dual_port.vhd \
+    $(COMMON_PATH)/skid_buffer.vhd \
+    $(COMMON_PATH)/skid_buffer_bit.vhd \
     $(COMMON_PATH)/types.vhd
 

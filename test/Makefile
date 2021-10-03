@@ -46,6 +46,7 @@ SRCS += \
     $(TEST_PATH)/sau_tb.vhd \
     $(TEST_PATH)/shift32_tb.vhd \
     $(TEST_PATH)/shuf32_tb.vhd \
+    $(TEST_PATH)/skid_buffer_tb.vhd \
     $(TEST_PATH)/vector_control_tb.vhd \
     $(TEST_PATH)/vector_stride_gen_tb.vhd
 
@@ -74,6 +75,7 @@ TESTS += \
     sau_tb \
     shift32_tb \
     shuf32_tb \
+    skid_buffer_tb \
     vector_control_tb \
     vector_stride_gen_tb
 
