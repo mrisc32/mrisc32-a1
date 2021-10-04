@@ -251,8 +251,7 @@ begin
   --------------------------------------------------------------------------------------------------
 
   -- Calculate the expected branch base if a branch is taken (i.e. IF_PC - offset).
-  -- TODO(m): Optimize this operation.
-  s_branch_base_expected <= std_logic_vector(unsigned(i_if_pc) - unsigned(i_imm(29 downto 0) & "00"));
+  s_branch_base_expected <= std_logic_vector(signed(i_if_pc) - signed(i_branch_offset & "00"));
 
   -- Calculate the expected PC if no branch is taken (i.e. PC + 4).
   -- This is used by the branch logic in the EX1 stage if the branch is not taken.
