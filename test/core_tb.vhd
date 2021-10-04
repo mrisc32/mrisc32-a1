@@ -151,7 +151,7 @@ begin
 
     -- Read the program to run from the binary file core_tb_prg.bin.
     file_open(f_char_file, "out/core_tb_prg.bin");
-    v_mem_idx := to_integer(unsigned(read_word(f_char_file)))/4;  -- Fist word = program start.
+    v_mem_idx := 512/4;  -- Program start = 0x0200
     while not endfile(f_char_file) loop
       v_mem_array(v_mem_idx) := read_word(f_char_file);
       v_mem_idx := v_mem_idx + 1;
