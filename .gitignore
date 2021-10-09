@@ -1,6 +1,7 @@
+*.o
+*.elf
 *.bin
 *_tb
-*.o
 *.vcd
 *.ghw
 *.gtkw

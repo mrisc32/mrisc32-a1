@@ -1,5 +1,6 @@
+# -*- mode: Makefile; tab-width: 8; indent-tabs-mode: t; -*-
 ####################################################################################################
-# Copyright (c) 2018 Marcus Geelnard
+# Copyright (c) 2021 Marcus Geelnard
 #
 # This software is provided 'as-is', without any express or implied warranty. In no event will the
 # authors be held liable for any damages arising from the use of this software.
@@ -17,43 +18,12 @@
 #  3. This notice may not be removed or altered from any source distribution.
 ####################################################################################################
 
-WORKDIR = out
-SW_SRC_DIR = ../../sw
+TEST_PROGRAMS_PATH = test/programs
 
-GHDL = ghdl
-GHDLWARNINGS = \
-    -Wbinding \
-    -Wreserved \
-    -Wlibrary \
-    -Wvital-generic \
-    -Wbody \
-    -Wspecs \
-    -Wunused \
-    -Werror
-GHDLFLAGS = --std=08 --work=work --workdir=$(WORKDIR) $(GHDLWARNINGS)
+EXTRA += \
+    $(WORKDIR)/branches.bin
 
-.PHONY: all clean
-
-default: all
-
-SRCS =
-TESTS =
-EXTRA =
-
-include rtl/Makefile
-include test/Makefile
-include benchmark/Makefile
-include test/programs/Makefile
-
-all: $(TESTS) $(EXTRA)
-
-$(TESTS): $(WORKDIR)/work-obj93.cf $(SRCS)
-	$(GHDL) -m $(GHDLFLAGS) $@
-
-clean:
-	$(GHDL) --clean
-	rm -rf *.o *_tb *.vcd *.ghw $(WORKDIR)/*.o $(WORKDIR)/*.cf $(WORKDIR)/*_tb $(WORKDIR)/*.vcd $(WORKDIR)/*.ghw
-
-$(WORKDIR)/work-obj93.cf: $(SRCS)
-	$(GHDL) -i $(GHDLFLAGS) $(SRCS)
+$(WORKDIR)/branches.bin: $(TEST_PROGRAMS_PATH)/branches.s
+	mrisc32-elf-gcc -mno-crt0 $< -o $(WORKDIR)/branches.elf
+	mrisc32-elf-objcopy -O binary $(WORKDIR)/branches.elf $@
 
