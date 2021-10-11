@@ -24,6 +24,16 @@ use work.config.all;
 
 package types is
   ------------------------------------------------------------------------------------------------
+  -- Branch types (used by branch predictor and branch logic).
+  ------------------------------------------------------------------------------------------------
+
+  subtype T_BRANCH_TYPE is std_logic_vector(1 downto 0);
+  constant C_BRANCH_NONE : T_BRANCH_TYPE := "00";
+  constant C_BRANCH_JUMP : T_BRANCH_TYPE := "01";  -- Conditional & unconditional jumps.
+  constant C_BRANCH_CALL : T_BRANCH_TYPE := "10";  -- Subroutine call.
+  constant C_BRANCH_RET  : T_BRANCH_TYPE := "11";  -- Subroutine return.
+
+  ------------------------------------------------------------------------------------------------
   -- Source and target register meta data.
   ------------------------------------------------------------------------------------------------
 

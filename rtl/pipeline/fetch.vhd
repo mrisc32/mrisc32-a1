@@ -45,6 +45,7 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 use work.config.all;
+use work.types.all;
 
 entity fetch is
   generic(
@@ -60,7 +61,7 @@ entity fetch is
     -- Results from the branch/PC correction unit in the EX stage (async).
     i_pccorr_source : in std_logic_vector(C_WORD_SIZE-1 downto 0);
     i_pccorr_target : in std_logic_vector(C_WORD_SIZE-1 downto 0);
-    i_pccorr_is_branch : in std_logic;
+    i_pccorr_branch_type : in T_BRANCH_TYPE;
     i_pccorr_is_taken : in std_logic;
     i_pccorr_adjust : in std_logic;  -- 1 if the PC correction needs to be applied.
     i_pccorr_adjusted_pc : in std_logic_vector(C_WORD_SIZE-1 downto 0);
@@ -129,7 +130,7 @@ begin
 
       -- Buffer update (sync).
       i_write_pc => i_pccorr_source,
-      i_write_is_branch => i_pccorr_is_branch,
+      i_write_branch_type => i_pccorr_branch_type,
       i_write_is_taken => i_pccorr_is_taken,
       i_write_target => i_pccorr_target
     );

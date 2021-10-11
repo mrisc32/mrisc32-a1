@@ -68,6 +68,7 @@ entity decode is
     o_branch_is_unconditional : out std_logic;
     o_branch_condition : out T_BRANCH_COND;
     o_branch_offset : out std_logic_vector(20 downto 0);
+    o_branch_type : out T_BRANCH_TYPE;
 
     o_reg_a_required : out std_logic;
     o_reg_b_required : out std_logic;
@@ -145,6 +146,8 @@ architecture rtl of decode is
   signal s_is_conditional_branch : std_logic;
   signal s_is_branch : std_logic;
   signal s_is_link_branch : std_logic;
+  signal s_is_ret : std_logic;
+  signal s_branch_type : T_BRANCH_TYPE;
   signal s_branch_condition : T_BRANCH_COND;
   signal s_branch_offset : std_logic_vector(20 downto 0);
 
@@ -216,6 +219,7 @@ architecture rtl of decode is
   signal s_div_en_masked : std_logic;
   signal s_fpu_en_masked : std_logic;
   signal s_is_branch_masked : std_logic;
+  signal s_branch_type_masked : T_BRANCH_TYPE;
 
   function decode_immediate(instr : std_logic_vector; imm_type : IMM_TYPE_T) return std_logic_vector is
     variable v_result : std_logic_vector(C_WORD_SIZE-1 downto 0);
@@ -489,7 +493,17 @@ begin
   s_is_conditional_branch <= (not i_bubble) when s_op_high(5 downto 0) = "110111" else '0';
   s_branch_condition <= i_instr(20 downto 18);
 
+  -- Is this a RET instruction (subset of J branches).
+  -- 0xc3c00000  =  J LR, #0  =  RET
+  s_is_ret <= (not i_bubble) when i_instr = x"c3c00000" else '0';
+
   s_is_branch <= s_is_unconditional_branch or s_is_conditional_branch;
+
+  -- Determine the branch type, for the branch predictor.
+  s_branch_type <= C_BRANCH_RET  when s_is_ret = '1' else
+                   C_BRANCH_CALL when s_is_link_branch = '1' else
+                   C_BRANCH_JUMP when s_is_branch = '1' else
+                   C_BRANCH_NONE;
 
   -- Unconditional branches (J, JL) use a 21-bit branch offset, while conditional branches (Bcc) use
   -- an 18-bit branch offset. Both offsets are encoded in the least significant bits of the
@@ -615,6 +629,7 @@ begin
   s_div_en_masked <= s_div_en and not s_bubble;
   s_fpu_en_masked <= s_fpu_en and not s_bubble;
   s_is_branch_masked <= s_is_branch and not s_bubble;
+  s_branch_type_masked <= s_branch_type when s_bubble = '0' else C_BRANCH_NONE;
 
   -- Outputs to the RF stage (async).
   o_next_src_reg_a <= s_next_src_reg_a;
@@ -673,6 +688,7 @@ begin
         o_branch_is_unconditional <= s_is_unconditional_branch;
         o_branch_condition <= s_branch_condition;
         o_branch_offset <= s_branch_offset;
+        o_branch_type <= s_branch_type_masked;
 
         o_reg_a_required <= s_reg_a_required_masked;
         o_reg_b_required <= s_reg_b_required_masked;

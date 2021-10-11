@@ -58,6 +58,7 @@ entity register_fetch is
     i_branch_is_unconditional : in std_logic;
     i_branch_condition : in T_BRANCH_COND;
     i_branch_offset : in std_logic_vector(20 downto 0);
+    i_branch_type : in T_BRANCH_TYPE;
 
     i_reg_a_required : in std_logic;
     i_reg_b_required : in std_logic;
@@ -115,6 +116,7 @@ entity register_fetch is
     o_branch_is_unconditional : out std_logic;
     o_branch_condition : out T_BRANCH_COND;
     o_branch_offset : out std_logic_vector(20 downto 0);
+    o_branch_type : out T_BRANCH_TYPE;
     o_branch_base_expected : out std_logic_vector(C_WORD_SIZE-1 downto 0);
     o_branch_pc_plus_4 : out std_logic_vector(C_WORD_SIZE-1 downto 0);
 
@@ -183,6 +185,7 @@ architecture rtl of register_fetch is
   signal s_fpu_en_masked : std_logic;
   signal s_branch_is_branch_masked : std_logic;
   signal s_branch_is_unconditional_masked : std_logic;
+  signal s_branch_type_masked : T_BRANCH_TYPE;
 begin
   -- Should the current instruction be canceled?
   process(i_clk, i_rst)
@@ -321,6 +324,7 @@ begin
   s_fpu_en_masked <= i_fpu_en and not s_bubble;
   s_branch_is_branch_masked <= i_branch_is_branch and not s_bubble;
   s_branch_is_unconditional_masked <= i_branch_is_unconditional and not s_bubble;
+  s_branch_type_masked <= i_branch_type when s_bubble = '0' else C_BRANCH_NONE;
 
   -- Outputs to the EX stage.
   process(i_clk, i_rst)
@@ -385,19 +389,23 @@ begin
       o_branch_is_unconditional <= '0';
       o_branch_condition <= (others => '0');
       o_branch_offset <= (others => '0');
+      o_branch_type <= C_BRANCH_NONE;
       o_branch_base_expected <= (others => '0');
       o_branch_pc_plus_4 <= (others => '0');
     elsif rising_edge(i_clk) then
-      -- We need to guarantee that the o_branch_is_branch signal is only triggered once for each
-      -- branch, since it is used as a command.
-      o_branch_is_branch <= s_branch_is_branch_masked and not i_stall;
-
       if i_stall = '0' then
+        o_branch_is_branch <= s_branch_is_branch_masked;
+        o_branch_type <= s_branch_type_masked;
         o_branch_is_unconditional <= s_branch_is_unconditional_masked;
         o_branch_condition <= i_branch_condition;
         o_branch_offset <= i_branch_offset;
         o_branch_base_expected <= s_branch_base_expected;
         o_branch_pc_plus_4 <= s_branch_pc_plus_4;
+      else
+        -- We need to guarantee that the branch type signals are only triggered
+        -- once for each branch, since they are used as commands.
+        o_branch_is_branch <= '0';
+        o_branch_type <= C_BRANCH_NONE;
       end if;
     end if;
   end process;

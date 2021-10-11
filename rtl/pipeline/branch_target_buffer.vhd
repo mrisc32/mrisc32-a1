@@ -35,6 +35,7 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 use work.config.all;
+use work.types.all;
 
 entity branch_target_buffer is
   port(
@@ -51,7 +52,7 @@ entity branch_target_buffer is
 
       -- Buffer update (sync).
       i_write_pc : in std_logic_vector(C_WORD_SIZE-1 downto 0);
-      i_write_is_branch : in std_logic;
+      i_write_branch_type : in T_BRANCH_TYPE;
       i_write_is_taken : in std_logic;
       i_write_target : in std_logic_vector(C_WORD_SIZE-1 downto 0)
     );
@@ -84,6 +85,8 @@ architecture rtl of branch_target_buffer is
   signal s_prev_read_pc : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_got_match : std_logic;
   signal s_got_taken : std_logic;
+
+  signal s_write_is_branch : std_logic;
 
   signal s_prev_write_is_branch : std_logic;
   signal s_prev_write_is_taken : std_logic;
@@ -188,6 +191,18 @@ begin
 
 
   --------------------------------------------------------------------------------------------------
+  -- Handle different kinds of branches.
+  --------------------------------------------------------------------------------------------------
+
+  -- TODO(m): Add better support for different branch types.
+  s_write_is_branch <= '1' when
+                           i_write_branch_type = C_BRANCH_JUMP or
+                           i_write_branch_type = C_BRANCH_CALL or
+                           i_write_branch_type = C_BRANCH_RET
+                       else '0';
+
+
+  --------------------------------------------------------------------------------------------------
   -- Global history.
   --------------------------------------------------------------------------------------------------
 
@@ -199,7 +214,7 @@ begin
       elsif rising_edge(i_clk) then
         if i_invalidate = '1' then
           s_global_history <= (others => '0');
-        elsif i_write_is_branch = '1' then
+        elsif s_write_is_branch = '1' then
           s_global_history <= i_write_is_taken & s_global_history(C_GHR_BITS-1 downto 1);
         end if;
       end if;
@@ -262,7 +277,7 @@ begin
       s_prev_write_tag <= (others => '0');
       s_prev_write_target <= (others => '0');
     elsif rising_edge(i_clk) then
-      s_prev_write_is_branch <= i_write_is_branch;
+      s_prev_write_is_branch <= s_write_is_branch;
       s_prev_write_is_taken <= i_write_is_taken;
       s_prev_write_addr <= s_counter_read_addr;
       s_prev_write_tag <= make_tag(i_write_pc);

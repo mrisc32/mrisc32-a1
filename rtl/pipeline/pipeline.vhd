@@ -81,6 +81,7 @@ architecture rtl of pipeline is
   signal s_id_branch_is_unconditional : std_logic;
   signal s_id_branch_condition : T_BRANCH_COND;
   signal s_id_branch_offset : std_logic_vector(20 downto 0);
+  signal s_id_branch_type : T_BRANCH_TYPE;
 
   signal s_id_reg_a_required : std_logic;
   signal s_id_reg_b_required : std_logic;
@@ -120,6 +121,7 @@ architecture rtl of pipeline is
   signal s_rf_branch_is_unconditional : std_logic;
   signal s_rf_branch_condition : T_BRANCH_COND;
   signal s_rf_branch_offset : std_logic_vector(20 downto 0);
+  signal s_rf_branch_type : T_BRANCH_TYPE;
   signal s_rf_branch_base_expected : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_rf_branch_pc_plus_4 : std_logic_vector(C_WORD_SIZE-1 downto 0);
 
@@ -156,7 +158,7 @@ architecture rtl of pipeline is
   -- From EX1.
   signal s_ex1_pccorr_target : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_ex1_pccorr_source : std_logic_vector(C_WORD_SIZE-1 downto 0);
-  signal s_ex1_pccorr_is_branch : std_logic;
+  signal s_ex1_pccorr_branch_type : T_BRANCH_TYPE;
   signal s_ex1_pccorr_is_taken : std_logic;
   signal s_ex1_pccorr_adjust : std_logic;
   signal s_ex1_pccorr_adjusted_pc : std_logic_vector(C_WORD_SIZE-1 downto 0);
@@ -242,7 +244,7 @@ begin
       -- Results from the branch/PC correction unit in the EX stage (async).
       i_pccorr_source => s_ex1_pccorr_source,
       i_pccorr_target => s_ex1_pccorr_target,
-      i_pccorr_is_branch => s_ex1_pccorr_is_branch,
+      i_pccorr_branch_type => s_ex1_pccorr_branch_type,
       i_pccorr_is_taken => s_ex1_pccorr_is_taken,
       i_pccorr_adjust => s_ex1_pccorr_adjust,
       i_pccorr_adjusted_pc => s_ex1_pccorr_adjusted_pc,
@@ -307,6 +309,7 @@ begin
       o_branch_is_unconditional => s_id_branch_is_unconditional,
       o_branch_condition => s_id_branch_condition,
       o_branch_offset => s_id_branch_offset,
+      o_branch_type => s_id_branch_type,
 
       o_reg_a_required => s_id_reg_a_required,
       o_reg_b_required => s_id_reg_b_required,
@@ -368,6 +371,7 @@ begin
       i_branch_is_unconditional => s_id_branch_is_unconditional,
       i_branch_condition => s_id_branch_condition,
       i_branch_offset => s_id_branch_offset,
+      i_branch_type => s_id_branch_type,
 
       i_reg_a_required => s_id_reg_a_required,
       i_reg_b_required => s_id_reg_b_required,
@@ -425,6 +429,7 @@ begin
       o_branch_is_unconditional => s_rf_branch_is_unconditional,
       o_branch_condition => s_rf_branch_condition,
       o_branch_offset => s_rf_branch_offset,
+      o_branch_type => s_rf_branch_type,
       o_branch_base_expected => s_rf_branch_base_expected,
       o_branch_pc_plus_4 => s_rf_branch_pc_plus_4,
 
@@ -498,13 +503,14 @@ begin
       i_branch_is_unconditional => s_rf_branch_is_unconditional,
       i_branch_condition => s_rf_branch_condition,
       i_branch_offset => s_rf_branch_offset,
+      i_branch_type => s_rf_branch_type,
       i_branch_base_expected => s_rf_branch_base_expected,
       i_branch_pc_plus_4 => s_rf_branch_pc_plus_4,
 
       -- Branch PC correction to the PC stage (async).
       o_pccorr_target => s_ex1_pccorr_target,
       o_pccorr_source => s_ex1_pccorr_source,
-      o_pccorr_is_branch => s_ex1_pccorr_is_branch,
+      o_pccorr_branch_type => s_ex1_pccorr_branch_type,
       o_pccorr_is_taken => s_ex1_pccorr_is_taken,
       o_pccorr_adjust => s_ex1_pccorr_adjust,
       o_pccorr_adjusted_pc => s_ex1_pccorr_adjusted_pc,

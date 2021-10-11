@@ -67,13 +67,14 @@ entity execute is
     i_branch_is_unconditional : in std_logic;
     i_branch_condition : in T_BRANCH_COND;
     i_branch_offset : in std_logic_vector(20 downto 0);
+    i_branch_type : in T_BRANCH_TYPE;
     i_branch_base_expected : in std_logic_vector(C_WORD_SIZE-1 downto 0);
     i_branch_pc_plus_4 : in std_logic_vector(C_WORD_SIZE-1 downto 0);
 
     -- Branch signals to PC (async).
     o_pccorr_target : out std_logic_vector(C_WORD_SIZE-1 downto 0);
     o_pccorr_source : out std_logic_vector(C_WORD_SIZE-1 downto 0);
-    o_pccorr_is_branch : out std_logic;
+    o_pccorr_branch_type : out T_BRANCH_TYPE;
     o_pccorr_is_taken : out std_logic;
     o_pccorr_adjust : out std_logic;
     o_pccorr_adjusted_pc : out std_logic_vector(C_WORD_SIZE-1 downto 0);
@@ -164,7 +165,7 @@ architecture rtl of execute is
   signal s_branch_base : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_branch_target : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_next_pc : std_logic_vector(C_WORD_SIZE-1 downto 0);
-  signal s_mispredicted_pc : std_logic;
+  signal s_correctly_predicted_pc : std_logic;
 
   -- Signals from the EX1 to the EX2 stage (async).
   signal s_ex1_next_result : std_logic_vector(C_WORD_SIZE-1 downto 0);
@@ -255,19 +256,19 @@ begin
   --   b) an untaken branch and the next PC equals this PC + 4, or
   --   c) not a branch at all, or
   --   d) we got a bubble (e.g. after reset)
-  s_mispredicted_pc <= '0' when
+  s_correctly_predicted_pc <= '1' when
         (s_branch_is_taken = '1' and i_branch_base_expected = s_branch_base) or
         (s_branch_is_taken = '0' and i_branch_pc_plus_4 = i_id_pc) or
         i_branch_is_branch = '0' or
         i_bubble = '1'
-      else '1';
+      else '0';
 
   -- Branch/PC correction signals to the PC stage.
   o_pccorr_target <= s_branch_target;
   o_pccorr_source <= i_pc;
-  o_pccorr_is_branch <= i_branch_is_branch;
+  o_pccorr_branch_type <= i_branch_type;
   o_pccorr_is_taken <= s_branch_is_taken;
-  o_pccorr_adjust <= s_mispredicted_pc;
+  o_pccorr_adjust <= not s_correctly_predicted_pc;
   o_pccorr_adjusted_pc <= s_next_pc;
 
 
