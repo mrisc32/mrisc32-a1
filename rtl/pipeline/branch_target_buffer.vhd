@@ -43,6 +43,7 @@ entity branch_target_buffer is
       i_clk : in std_logic;
       i_rst : in std_logic;
       i_invalidate : in std_logic;
+      i_cancel_speculation : in std_logic;
 
       -- Buffer lookup (sync).
       i_read_pc : in std_logic_vector(C_WORD_SIZE-1 downto 0);
@@ -70,11 +71,26 @@ architecture rtl of branch_target_buffer is
   constant C_TAG_SIZE : integer := C_WORD_SIZE-2 - (C_LOG2_ENTRIES - C_GHR_BITS);
 
   -- Size of a branch target entry.
-  constant C_ENTRY_SIZE : integer := 1 + C_WORD_SIZE-2;  -- is_taken & target_address
+  -- Encoding of an entry: branch_type (2 bits) & is_taken (1 bit) & target_address
+  constant C_ENTRY_SIZE : integer := 3 + C_WORD_SIZE-2;
 
   -- Number of bits per counter.
   constant C_COUNTER_SIZE : integer := 2;
   constant C_MAX_COUNT : integer := (2**C_COUNTER_SIZE) - 1;
+
+  -- Number of entries in the return address stack (C_LOG2_RAS_ENTRIES = 0 to disable).
+  -- Note: 8-16 entries is usually "good enough", but if the stack is synthesized as BRAM you can
+  -- usually go much higher in order to utilize more of the RAM bits (that would otherwise be
+  -- wasted).
+  constant C_LOG2_RAS_ENTRIES : integer := 4;
+  constant C_NUM_RAS_ENTRIES : integer := 2**C_LOG2_RAS_ENTRIES;
+
+  type T_RAS_ARRAY is array (0 to C_NUM_RAS_ENTRIES-1) of std_logic_vector(C_WORD_SIZE-3 downto 0);
+  signal s_ras_array : T_RAS_ARRAY;
+  signal s_ras_index : unsigned(C_LOG2_RAS_ENTRIES-1 downto 0);
+  signal s_ras_correct_index : unsigned(C_LOG2_RAS_ENTRIES-1 downto 0);
+  signal s_ras_prediction : std_logic_vector(C_WORD_SIZE-3 downto 0);
+  signal s_ras_predict_taken : std_logic;
 
   signal s_invalidating : std_logic;
   signal s_invalidate_adr : unsigned(C_LOG2_ENTRIES-1 downto 0);
@@ -83,12 +99,12 @@ architecture rtl of branch_target_buffer is
 
   signal s_prev_read_en : std_logic;
   signal s_prev_read_pc : std_logic_vector(C_WORD_SIZE-1 downto 0);
+  signal s_btb_prediction : std_logic_vector(C_WORD_SIZE-3 downto 0);
   signal s_got_match : std_logic;
+  signal s_got_branch_type : T_BRANCH_TYPE;
   signal s_got_taken : std_logic;
 
-  signal s_write_is_branch : std_logic;
-
-  signal s_prev_write_is_branch : std_logic;
+  signal s_prev_write_branch_type : T_BRANCH_TYPE;
   signal s_prev_write_is_taken : std_logic;
   signal s_prev_write_addr : std_logic_vector(C_LOG2_ENTRIES-1 downto 0);
   signal s_prev_write_tag : std_logic_vector(C_TAG_SIZE-1 downto 0);
@@ -191,18 +207,6 @@ begin
 
 
   --------------------------------------------------------------------------------------------------
-  -- Handle different kinds of branches.
-  --------------------------------------------------------------------------------------------------
-
-  -- TODO(m): Add better support for different branch types.
-  s_write_is_branch <= '1' when
-                           i_write_branch_type = C_BRANCH_JUMP or
-                           i_write_branch_type = C_BRANCH_CALL or
-                           i_write_branch_type = C_BRANCH_RET
-                       else '0';
-
-
-  --------------------------------------------------------------------------------------------------
   -- Global history.
   --------------------------------------------------------------------------------------------------
 
@@ -214,11 +218,121 @@ begin
       elsif rising_edge(i_clk) then
         if i_invalidate = '1' then
           s_global_history <= (others => '0');
-        elsif s_write_is_branch = '1' then
+        elsif i_write_branch_type /= C_BRANCH_NONE then
           s_global_history <= i_write_is_taken & s_global_history(C_GHR_BITS-1 downto 1);
         end if;
       end if;
     end process;
+  end generate;
+
+
+  --------------------------------------------------------------------------------------------------
+  -- Return address stack.
+  --
+  -- The RAS is implemented as a circular buffer containing up to N different return addresses at
+  -- different call depths, and helps with predicting the return address for function calls (e.g.
+  -- malloc() may be called from many different callers, which makes it hard or impossible for the
+  -- BTB to predict the branch target of a RET instruction).
+  --
+  --   * When a CALL branch is encountered (i.e. any "JL" instruction), PC+4 is pushed onto the
+  --     return address stack (the stack index is increased).
+  --
+  --   * When a RET branch is encountered (i.e. a "J LR,#0" instruction), the return address is
+  --     popped from the return address stack (the stack index is decreased) and used as the
+  --     predicted branch target address.
+  --
+  --   * There are two stack indices:
+  --     - There is a speciulative stack index, which is controlled by the branch type that is
+  --       fetched from the BTB buffer, and thus the speculative stack index is updated in sync
+  --       with the instruction fetch. The speculative stack index is used for RAS predictions.
+  --
+  --     - Additionally there is a "correct" (non-speculative) stack index that is controlled by
+  --       the branch logic in the EX1 stage, and thus the non-speculative stack index lags behind
+  --       the instruciton fetch by a few cycles.
+  --
+  --     - When a branch misprediction is detected in EX1, the speculative stack index is rewound
+  --       to the non-speculative stack index.
+  --
+  --   * For deep call chains, the circular buffer may overflow and thus the oldest entries will
+  --     silently be overwritten. However, the N most recent return addresses will still be
+  --     correctly predicted (which should provide accurate prediction for most performance
+  --     sensitive code that loops around a call tree that is <N deep). This strategy also works
+  --     well for many recursive algorithms, since the stack will be filled with a single return
+  --     address, and thus as overwritten entries are used for prediction, they will just happen to
+  --     be correct.
+  --------------------------------------------------------------------------------------------------
+
+  RAS_GEN: if C_LOG2_RAS_ENTRIES > 0 generate
+    process(i_clk, i_rst)
+      variable v_branch_type : T_BRANCH_TYPE;
+      variable v_ras_index : unsigned(C_LOG2_RAS_ENTRIES-1 downto 0);
+      variable v_return_pc : unsigned(C_WORD_SIZE-3 downto 0);
+      variable v_write_addr : unsigned(C_LOG2_RAS_ENTRIES-1 downto 0);
+    begin
+      if i_rst = '1' then
+        s_ras_index <= (others => '0');
+        s_ras_correct_index <= (others => '0');
+      elsif rising_edge(i_clk) then
+        -- Get current RAS index & the type of the current branch (if any).
+        if s_invalidating = '1' then
+          -- Reset the RAS index when the branch predictor is invalidated.
+          v_branch_type := C_BRANCH_NONE;
+          v_ras_index := to_unsigned(0, C_LOG2_RAS_ENTRIES);
+          v_return_pc := to_unsigned(1, C_WORD_SIZE-2);
+        elsif i_cancel_speculation = '1' then
+          -- Rewind the speculative RAS index to the correct one when we get a request to cancel
+          -- speculative state. This happens when the branch logic detects a branch misprediction.
+          v_branch_type := i_write_branch_type;
+          v_ras_index := s_ras_correct_index;
+          v_return_pc := unsigned(i_write_pc(C_WORD_SIZE-1 downto 2)) + 1;
+        else
+          -- ...otherwise (during "normal operation"), we base the RAS index on the speculative
+          -- state (i.e. the most recent outcome of branch prediction).
+          v_branch_type := s_got_branch_type;
+          v_ras_index := s_ras_index;
+          v_return_pc := unsigned(s_prev_read_pc(C_WORD_SIZE-1 downto 2)) + 1;
+        end if;
+
+        -- Calculate the next RAS index based on branch type.
+        if v_branch_type = C_BRANCH_CALL then
+          v_ras_index := v_ras_index + 1;
+        elsif v_branch_type = C_BRANCH_RET then
+          v_ras_index := v_ras_index - 1;
+        end if;
+
+        -- Push the return address onto the return address stack.
+        if s_invalidating = '1' or v_branch_type = C_BRANCH_CALL then
+          if s_invalidating = '1' then
+            v_write_addr := s_invalidate_adr(C_LOG2_RAS_ENTRIES-1 downto 0);
+          else
+            v_write_addr := v_ras_index;
+          end if;
+          s_ras_array(to_integer(v_write_addr)) <= std_logic_vector(v_return_pc);
+        end if;
+
+        -- Update the speculative RAS index.
+        s_ras_index <= v_ras_index;
+
+        -- Update the "correct" RAS index, based on branch commands from the EX1 stage.
+        -- Note that this is lagging behind the speculative state due to pipelining.
+        if s_invalidating = '1' then
+          s_ras_correct_index <= to_unsigned(0, C_LOG2_RAS_ENTRIES);
+        elsif i_write_branch_type = C_BRANCH_CALL then
+          s_ras_correct_index <= s_ras_correct_index + 1;
+        elsif i_write_branch_type = C_BRANCH_RET then
+          s_ras_correct_index <= s_ras_correct_index - 1;
+        end if;
+      end if;
+    end process;
+
+    -- Do we have a prediction from the RAS?
+    -- We read the target address from the RAS array asynchronously (write pass-through) in order to
+    -- have the value ready in time during the prediction cycle.
+    s_ras_prediction <= s_ras_array(to_integer(s_ras_index));
+    s_ras_predict_taken <= (not s_invalidating) when s_got_branch_type = C_BRANCH_RET else '0';
+  else generate
+    s_ras_prediction <= (others => '0');
+    s_ras_predict_taken <= '0';
   end generate;
 
 
@@ -246,22 +360,27 @@ begin
 
 
   --------------------------------------------------------------------------------------------------
-  -- Buffer lookup.
+  -- BTB lookup.
   --------------------------------------------------------------------------------------------------
 
   s_read_addr <= table_address(i_read_pc, s_global_history);
 
-  -- Decode the target and tag information.
-  o_predict_target <= s_target_read_data(C_ENTRY_SIZE-2 downto 0) & "00";
-  s_got_taken <= s_target_read_data(C_ENTRY_SIZE-1);
+  -- Decode the branch & target information.
+  s_got_branch_type <= s_target_read_data(C_ENTRY_SIZE-1 downto C_ENTRY_SIZE-2);
+  s_got_taken <= s_target_read_data(C_ENTRY_SIZE-3);
+  s_btb_prediction <= s_target_read_data(C_ENTRY_SIZE-4 downto 0);
+
+  -- Check the tag: Did we have a match?
   s_got_match <= '1' when make_tag(s_prev_read_pc) = s_tag_read_data else '0';
 
-  -- Determine if we should take the branch.
-  o_predict_taken <= s_prev_read_en and s_got_match and s_got_taken;
+  -- Determine if we should take the branch, and to where.
+  o_predict_target <= s_ras_prediction & "00" when s_ras_predict_taken = '1' else
+                      s_btb_prediction & "00";
+  o_predict_taken <= s_prev_read_en and s_got_match and (s_got_taken or s_ras_predict_taken);
 
 
   --------------------------------------------------------------------------------------------------
-  -- Buffer update is done during two cycles (pipelined):
+  -- BTB update is done during two cycles (pipelined):
   --  1) Read the counter from the counter RAM.
   --  2)
   --     a) Update the counter (+ or - depending on is_taken).
@@ -271,13 +390,13 @@ begin
   process(i_clk, i_rst)
   begin
     if i_rst = '1' then
-      s_prev_write_is_branch <= '0';
+      s_prev_write_branch_type <= C_BRANCH_NONE;
       s_prev_write_is_taken <= '0';
       s_prev_write_addr <= (others => '0');
       s_prev_write_tag <= (others => '0');
       s_prev_write_target <= (others => '0');
     elsif rising_edge(i_clk) then
-      s_prev_write_is_branch <= s_write_is_branch;
+      s_prev_write_branch_type <= i_write_branch_type;
       s_prev_write_is_taken <= i_write_is_taken;
       s_prev_write_addr <= s_counter_read_addr;
       s_prev_write_tag <= make_tag(i_write_pc);
@@ -293,13 +412,13 @@ begin
   s_counter_predicts_taken <= s_updated_counter(C_COUNTER_SIZE-1);  -- MSB of counter = predict taken
 
   -- Prepare write operations to the different RAM:s.
-  s_we <= s_invalidating or s_prev_write_is_branch;
+  s_we <= '1' when s_invalidating = '1' or s_prev_write_branch_type /= C_BRANCH_NONE else '0';
   s_write_addr <= std_logic_vector(s_invalidate_adr) when s_invalidating = '1' else
                   s_prev_write_addr;
   s_tag_write_data <= (others => '0') when s_invalidating = '1' else
                       s_prev_write_tag;
   s_target_write_data <= (others => '0') when s_invalidating = '1' else
-                         s_counter_predicts_taken & s_prev_write_target;
+                         s_prev_write_branch_type & s_counter_predicts_taken & s_prev_write_target;
   s_counter_write_data <= (C_COUNTER_SIZE-1 => '0', others => '1') when s_invalidating = '1' else
                           s_updated_counter;
 end rtl;

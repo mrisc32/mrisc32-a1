@@ -121,6 +121,7 @@ begin
       i_clk => i_clk,
       i_rst => i_rst,
       i_invalidate => '0',
+      i_cancel_speculation => i_cancel,
 
       -- Buffer lookup (sync).
       i_read_pc => s_if1_btb_read_pc,
