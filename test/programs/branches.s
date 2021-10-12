@@ -29,6 +29,7 @@ _start:
 	bl	loop_x2
 	bl	calls1
 	bl	calls2
+	bl	recursion
 	b	_start
 
 loop_x2:
@@ -76,4 +77,19 @@ subroutine2:
 	nop
 	nop
 	ret				; Return branch (100% taken)
+
+recursion:
+	ldi	r1, #40
+1:	bz	r1, 2f
+	add	sp, sp, #-4
+	stw	lr, [sp, #0]
+	add	r1, r1, #-1
+	bl	recursion_sub1
+	bl	1b
+	ldw	lr, [sp, #0]
+	add	sp, sp, #4
+2:	ret
+
+recursion_sub1:
+	ret
 
