@@ -18,15 +18,15 @@
 ----------------------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------------------
--- Branch Target Buffer
+-- Branch Predictor
 --
--- This is a simple bi-modal branch predictor with a branch target buffer. The PC provided by
+-- This is a configurable branch predictor with a branch target buffer. The PC provided by
 -- i_read_pc represents the PC that will be used during the next cycle in the IF stage, and the
 -- predicted target (and whether it should be taken) is provided during the next cycle.
 --
 -- The branch predictor is guaranteed to never signal o_predict_taken if a branch instruction has
--- not previously been seen at the given PC (if the program memory has modified, i_invalidate must
--- be signalled to clear the predictor buffers).
+-- not previously been seen at the given PC (if the program memory has been modified, i_invalidate
+-- must be asserted to clear the predictor state).
 --
 -- Note: The two least significant bits of the PC are ignored (treated as zero).
 ----------------------------------------------------------------------------------------------------
@@ -37,7 +37,7 @@ use ieee.numeric_std.all;
 use work.config.all;
 use work.types.all;
 
-entity branch_target_buffer is
+entity branch_predictor is
   port(
       -- Control signals.
       i_clk : in std_logic;
@@ -57,9 +57,9 @@ entity branch_target_buffer is
       i_write_is_taken : in std_logic;
       i_write_target : in std_logic_vector(C_WORD_SIZE-1 downto 0)
     );
-end branch_target_buffer;
+end branch_predictor;
 
-architecture rtl of branch_target_buffer is
+architecture rtl of branch_predictor is
   -- Number of entries in the global history buffer (0 to disable).
   constant C_GHR_BITS : integer := 0;
 
@@ -207,9 +207,34 @@ begin
 
 
   --------------------------------------------------------------------------------------------------
+  -- Invalidation state machine.
+  --------------------------------------------------------------------------------------------------
+
+  process(i_clk, i_rst)
+  begin
+    if i_rst = '1' then
+      s_invalidating <= '1';
+      s_invalidate_adr <= (others => '0');
+    elsif rising_edge(i_clk) then
+      if i_invalidate = '1' then
+        s_invalidating <= '1';
+        s_invalidate_adr <= (others => '0');
+      elsif s_invalidating = '1' then
+        if s_invalidate_adr = C_NUM_ENTRIES-1 then
+          s_invalidating <= '0';
+        end if;
+        s_invalidate_adr <= s_invalidate_adr + 1;
+      end if;
+    end if;
+  end process;
+
+
+  --------------------------------------------------------------------------------------------------
   -- Global history.
   --------------------------------------------------------------------------------------------------
 
+  -- TODO(m): Extend this to use speculative and non-speculative histories, similarly to how the
+  -- RAS works.
   GH_GEN: if C_GHR_BITS > 0 generate
     process(i_clk, i_rst)
     begin
@@ -224,6 +249,79 @@ begin
       end if;
     end process;
   end generate;
+
+
+  --------------------------------------------------------------------------------------------------
+  -- Branch target buffer.
+  --
+  -- The BTB is implemented as a direct-mapped cache containing per-instruction branch information.
+  --
+  --   * A BTB entry contains the following information:
+  --     - A branch type tag (to be able to differentiate between different kinds of branches).
+  --     - A single bit stating if the branch is predicted as taken or not taken.
+  --     - The branch target address (as calculated by the branch execution logic).
+  --     - An address tag (to determine BTB lookup validity).
+  --
+  --   * For each BTB entry there is also a saturating counter (in a separate buffer).
+  --
+  --   * BTB entries are updated as a response to the various i_write_* signals that come from the
+  --     branch execution logic in the EX1 stage.
+  --
+  --   * The BTB is updated during two cycles (pipelined):
+  --     1)   Read the counter from the counter RAM.
+  --     2.a) Update the counter (+ or - depending on is_taken).
+  --     2.b) Write the new counter to the counter RAM, and update the tag & target RAM:s.
+  --------------------------------------------------------------------------------------------------
+
+  -- BTB lookup.
+
+  s_read_addr <= table_address(i_read_pc, s_global_history);
+
+  -- Decode the branch & target information.
+  s_got_branch_type <= s_target_read_data(C_ENTRY_SIZE-1 downto C_ENTRY_SIZE-2);
+  s_got_taken <= s_target_read_data(C_ENTRY_SIZE-3);
+  s_btb_prediction <= s_target_read_data(C_ENTRY_SIZE-4 downto 0);
+
+  -- Check the tag: Did we have a match?
+  s_got_match <= '1' when make_tag(s_prev_read_pc) = s_tag_read_data else '0';
+
+
+  -- BTB update.
+
+  process(i_clk, i_rst)
+  begin
+    if i_rst = '1' then
+      s_prev_write_branch_type <= C_BRANCH_NONE;
+      s_prev_write_is_taken <= '0';
+      s_prev_write_addr <= (others => '0');
+      s_prev_write_tag <= (others => '0');
+      s_prev_write_target <= (others => '0');
+    elsif rising_edge(i_clk) then
+      s_prev_write_branch_type <= i_write_branch_type;
+      s_prev_write_is_taken <= i_write_is_taken;
+      s_prev_write_addr <= s_counter_read_addr;
+      s_prev_write_tag <= make_tag(i_write_pc);
+      s_prev_write_target <= i_write_target(C_WORD_SIZE-1 downto 2);
+    end if;
+  end process;
+
+  -- In the first cycle, read from the counter RAM.
+  s_counter_read_addr <= table_address(i_write_pc, s_global_history);
+
+  -- Update the counter, and determine if the next prediction should be taken or not.
+  s_updated_counter <= update_counter(s_counter_read_data, s_prev_write_is_taken);
+  s_counter_predicts_taken <= s_updated_counter(C_COUNTER_SIZE-1);  -- MSB of counter = predict taken
+
+  -- Prepare write operations to the different RAM:s.
+  s_we <= '1' when s_invalidating = '1' or s_prev_write_branch_type /= C_BRANCH_NONE else '0';
+  s_write_addr <= std_logic_vector(s_invalidate_adr) when s_invalidating = '1' else
+                  s_prev_write_addr;
+  s_tag_write_data <= (others => '0') when s_invalidating = '1' else
+                      s_prev_write_tag;
+  s_target_write_data <= (others => '0') when s_invalidating = '1' else
+                         s_prev_write_branch_type & s_counter_predicts_taken & s_prev_write_target;
+  s_counter_write_data <= (C_COUNTER_SIZE-1 => '0', others => '1') when s_invalidating = '1' else
+                          s_updated_counter;
 
 
   --------------------------------------------------------------------------------------------------
@@ -337,88 +435,14 @@ begin
 
 
   --------------------------------------------------------------------------------------------------
-  -- Invalidation state machine.
+  -- The branch predictor collects information from different predictors and outputs:
+  --
+  --  * Whether or not the instruction was a branch that should be taken.
+  --  * The target address of the branch.
   --------------------------------------------------------------------------------------------------
 
-  process(i_clk, i_rst)
-  begin
-    if i_rst = '1' then
-      s_invalidating <= '1';
-      s_invalidate_adr <= (others => '0');
-    elsif rising_edge(i_clk) then
-      if i_invalidate = '1' then
-        s_invalidating <= '1';
-        s_invalidate_adr <= (others => '0');
-      elsif s_invalidating = '1' then
-        if s_invalidate_adr = C_NUM_ENTRIES-1 then
-          s_invalidating <= '0';
-        end if;
-        s_invalidate_adr <= s_invalidate_adr + 1;
-      end if;
-    end if;
-  end process;
-
-
-  --------------------------------------------------------------------------------------------------
-  -- BTB lookup.
-  --------------------------------------------------------------------------------------------------
-
-  s_read_addr <= table_address(i_read_pc, s_global_history);
-
-  -- Decode the branch & target information.
-  s_got_branch_type <= s_target_read_data(C_ENTRY_SIZE-1 downto C_ENTRY_SIZE-2);
-  s_got_taken <= s_target_read_data(C_ENTRY_SIZE-3);
-  s_btb_prediction <= s_target_read_data(C_ENTRY_SIZE-4 downto 0);
-
-  -- Check the tag: Did we have a match?
-  s_got_match <= '1' when make_tag(s_prev_read_pc) = s_tag_read_data else '0';
-
-  -- Determine if we should take the branch, and to where.
+  o_predict_taken <= s_prev_read_en and s_got_match and (s_got_taken or s_ras_predict_taken);
   o_predict_target <= s_ras_prediction & "00" when s_ras_predict_taken = '1' else
                       s_btb_prediction & "00";
-  o_predict_taken <= s_prev_read_en and s_got_match and (s_got_taken or s_ras_predict_taken);
 
-
-  --------------------------------------------------------------------------------------------------
-  -- BTB update is done during two cycles (pipelined):
-  --  1) Read the counter from the counter RAM.
-  --  2)
-  --     a) Update the counter (+ or - depending on is_taken).
-  --     b) Write the new counter to the counter RAM, and update the tag & target RAM:s.
-  --------------------------------------------------------------------------------------------------
-
-  process(i_clk, i_rst)
-  begin
-    if i_rst = '1' then
-      s_prev_write_branch_type <= C_BRANCH_NONE;
-      s_prev_write_is_taken <= '0';
-      s_prev_write_addr <= (others => '0');
-      s_prev_write_tag <= (others => '0');
-      s_prev_write_target <= (others => '0');
-    elsif rising_edge(i_clk) then
-      s_prev_write_branch_type <= i_write_branch_type;
-      s_prev_write_is_taken <= i_write_is_taken;
-      s_prev_write_addr <= s_counter_read_addr;
-      s_prev_write_tag <= make_tag(i_write_pc);
-      s_prev_write_target <= i_write_target(C_WORD_SIZE-1 downto 2);
-    end if;
-  end process;
-
-  -- In the first cycle, read from the counter RAM.
-  s_counter_read_addr <= table_address(i_write_pc, s_global_history);
-
-  -- Update the counter, and determine if the next prediction should be taken or not.
-  s_updated_counter <= update_counter(s_counter_read_data, s_prev_write_is_taken);
-  s_counter_predicts_taken <= s_updated_counter(C_COUNTER_SIZE-1);  -- MSB of counter = predict taken
-
-  -- Prepare write operations to the different RAM:s.
-  s_we <= '1' when s_invalidating = '1' or s_prev_write_branch_type /= C_BRANCH_NONE else '0';
-  s_write_addr <= std_logic_vector(s_invalidate_adr) when s_invalidating = '1' else
-                  s_prev_write_addr;
-  s_tag_write_data <= (others => '0') when s_invalidating = '1' else
-                      s_prev_write_tag;
-  s_target_write_data <= (others => '0') when s_invalidating = '1' else
-                         s_prev_write_branch_type & s_counter_predicts_taken & s_prev_write_target;
-  s_counter_write_data <= (C_COUNTER_SIZE-1 => '0', others => '1') when s_invalidating = '1' else
-                          s_updated_counter;
 end rtl;

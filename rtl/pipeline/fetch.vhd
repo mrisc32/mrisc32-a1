@@ -20,10 +20,10 @@
 ----------------------------------------------------------------------------------------------------
 -- Pipeline stages 1 & 2: IF1 (Program Counter) and IF2 (Instruction Fetch)
 --
--- * The PC is updated as follows (highers prio first):
+-- * The PC is updated as follows (highest prio first):
 --   - C_RESET_PC when i_rst = '1'.
 --   - Corrected PC from EX.
---   - Predicted PC from branch predictor (based on PC from the previous cycle).
+--   - Predicted PC from branch predictor (based on PC + 4 from the previous cycle).
 --   - PC + 4 when no other information is known.
 -- * Rules:
 --   - Handling of i_cancel.
@@ -87,12 +87,12 @@ architecture rtl of fetch is
   signal s_if1_active : std_logic;
   signal s_if1_latched_pccorr_adjusted_pc : std_logic_vector(C_WORD_SIZE-1 downto 2);
   signal s_if1_latched_pccorr_adjust : std_logic;
-  signal s_if1_latched_btb_target : std_logic_vector(C_WORD_SIZE-1 downto 2);
-  signal s_if1_latched_btb_taken : std_logic;
-  signal s_if1_btb_read_en : std_logic;
-  signal s_if1_btb_read_pc : std_logic_vector(C_WORD_SIZE-1 downto 0);
-  signal s_if1_btb_taken : std_logic;
-  signal s_if1_btb_target : std_logic_vector(C_WORD_SIZE-1 downto 0);
+  signal s_if1_latched_bp_target : std_logic_vector(C_WORD_SIZE-1 downto 2);
+  signal s_if1_latched_bp_taken : std_logic;
+  signal s_if1_bp_read_en : std_logic;
+  signal s_if1_bp_read_pc : std_logic_vector(C_WORD_SIZE-1 downto 0);
+  signal s_if1_bp_taken : std_logic;
+  signal s_if1_bp_target : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_if1_next_pc : std_logic_vector(C_WORD_SIZE-1 downto 2);
   signal s_if1_pc : std_logic_vector(C_WORD_SIZE-1 downto 2);
   signal s_if1_next_request_is_active : std_logic;
@@ -112,11 +112,11 @@ begin
   -- Pipeline Stage 1: IF1 (Program Counter)
   --------------------------------------------------------------------------------------------------
 
-  BTB_GEN: if CONFIG.ENABLE_BRANCH_PREDICTOR generate
+  BP_GEN: if CONFIG.ENABLE_BRANCH_PREDICTOR generate
     -- Instantiate the branch target buffer.
-    s_if1_btb_read_en <= not s_stall_if1;
-    s_if1_btb_read_pc <= s_if1_next_pc & "00";
-    btb_0: entity work.branch_target_buffer
+    s_if1_bp_read_en <= not s_stall_if1;
+    s_if1_bp_read_pc <= s_if1_next_pc & "00";
+    predictor_0: entity work.branch_predictor
       port map (
         -- Control signals.
         i_clk => i_clk,
@@ -125,10 +125,10 @@ begin
         i_cancel_speculation => i_cancel,
 
         -- Buffer lookup (sync).
-        i_read_pc => s_if1_btb_read_pc,
-        i_read_en => s_if1_btb_read_en,
-        o_predict_taken => s_if1_btb_taken,
-        o_predict_target => s_if1_btb_target,
+        i_read_pc => s_if1_bp_read_pc,
+        i_read_en => s_if1_bp_read_en,
+        o_predict_taken => s_if1_bp_taken,
+        o_predict_target => s_if1_bp_target,
 
         -- Buffer update (sync).
         i_write_pc => i_pccorr_source,
@@ -138,13 +138,13 @@ begin
       );
   else generate
     -- Predict nothing.
-    s_if1_btb_read_en <= '0';
-    s_if1_btb_read_pc <= (others => '0');
-    s_if1_btb_taken <= '0';
-    s_if1_btb_target <= (others => '0');
+    s_if1_bp_read_en <= '0';
+    s_if1_bp_read_pc <= (others => '0');
+    s_if1_bp_taken <= '0';
+    s_if1_bp_target <= (others => '0');
   end generate;
 
-  -- We need to latch PC corrections and BTB PC predictions when IF1 is stalled,
+  -- We need to latch PC corrections and BP PC predictions when IF1 is stalled,
   -- so that they are not lost.
   process(i_clk, i_rst)
   begin
@@ -152,8 +152,8 @@ begin
       -- We start with a forced jump to the reset PC.
       s_if1_latched_pccorr_adjusted_pc <= CONFIG.RESET_PC(C_WORD_SIZE-1 downto 2);
       s_if1_latched_pccorr_adjust <= '1';
-      s_if1_latched_btb_target <= (others => '0');
-      s_if1_latched_btb_taken <= '0';
+      s_if1_latched_bp_target <= (others => '0');
+      s_if1_latched_bp_taken <= '0';
     elsif rising_edge(i_clk) then
       -- We need to catch PC corrections and keep them as long as IF1 is stalled.
       if i_pccorr_adjust = '1' then
@@ -165,14 +165,14 @@ begin
         s_if1_latched_pccorr_adjust <= '0';
       end if;
 
-      -- We need to catch BTB hints and keep them as long as IF1 is stalled.
-      if s_if1_btb_taken = '1' then
-        s_if1_latched_btb_target <= s_if1_btb_target(C_WORD_SIZE-1 downto 2);
+      -- We need to catch BP hints and keep them as long as IF1 is stalled.
+      if s_if1_bp_taken = '1' then
+        s_if1_latched_bp_target <= s_if1_bp_target(C_WORD_SIZE-1 downto 2);
       end if;
-      if s_if1_btb_taken = '1' and s_stall_if1 = '1' then
-        s_if1_latched_btb_taken <= '1';
+      if s_if1_bp_taken = '1' and s_stall_if1 = '1' then
+        s_if1_latched_bp_taken <= '1';
       elsif s_stall_if1 = '0' then
-        s_if1_latched_btb_taken <= '0';
+        s_if1_latched_bp_taken <= '0';
       end if;
     end if;
   end process;
@@ -182,8 +182,8 @@ begin
       i_pccorr_adjusted_pc(C_WORD_SIZE-1 downto 2) when i_pccorr_adjust = '1' else
       s_if1_latched_pccorr_adjusted_pc when s_if1_latched_pccorr_adjust = '1' else
       s_if1_pc when s_if1_request_is_active = '0' else
-      s_if1_btb_target(C_WORD_SIZE-1 downto 2) when s_if1_btb_taken = '1' else
-      s_if1_latched_btb_target when s_if1_latched_btb_taken = '1' else
+      s_if1_bp_target(C_WORD_SIZE-1 downto 2) when s_if1_bp_taken = '1' else
+      s_if1_latched_bp_target when s_if1_latched_bp_taken = '1' else
       std_logic_vector(unsigned(s_if1_pc) + to_unsigned(1, 1));
 
   -- Should we send a memory request?
