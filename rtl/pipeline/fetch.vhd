@@ -112,29 +112,37 @@ begin
   -- Pipeline Stage 1: IF1 (Program Counter)
   --------------------------------------------------------------------------------------------------
 
-  -- Instantiate the branch target buffer.
-  s_if1_btb_read_en <= not s_stall_if1;
-  s_if1_btb_read_pc <= s_if1_next_pc & "00";
-  btb_0: entity work.branch_target_buffer
-    port map (
-      -- Control signals.
-      i_clk => i_clk,
-      i_rst => i_rst,
-      i_invalidate => '0',
-      i_cancel_speculation => i_cancel,
+  BTB_GEN: if CONFIG.ENABLE_BRANCH_PREDICTOR generate
+    -- Instantiate the branch target buffer.
+    s_if1_btb_read_en <= not s_stall_if1;
+    s_if1_btb_read_pc <= s_if1_next_pc & "00";
+    btb_0: entity work.branch_target_buffer
+      port map (
+        -- Control signals.
+        i_clk => i_clk,
+        i_rst => i_rst,
+        i_invalidate => '0',
+        i_cancel_speculation => i_cancel,
 
-      -- Buffer lookup (sync).
-      i_read_pc => s_if1_btb_read_pc,
-      i_read_en => s_if1_btb_read_en,
-      o_predict_taken => s_if1_btb_taken,
-      o_predict_target => s_if1_btb_target,
+        -- Buffer lookup (sync).
+        i_read_pc => s_if1_btb_read_pc,
+        i_read_en => s_if1_btb_read_en,
+        o_predict_taken => s_if1_btb_taken,
+        o_predict_target => s_if1_btb_target,
 
-      -- Buffer update (sync).
-      i_write_pc => i_pccorr_source,
-      i_write_branch_type => i_pccorr_branch_type,
-      i_write_is_taken => i_pccorr_is_taken,
-      i_write_target => i_pccorr_target
-    );
+        -- Buffer update (sync).
+        i_write_pc => i_pccorr_source,
+        i_write_branch_type => i_pccorr_branch_type,
+        i_write_is_taken => i_pccorr_is_taken,
+        i_write_target => i_pccorr_target
+      );
+  else generate
+    -- Predict nothing.
+    s_if1_btb_read_en <= '0';
+    s_if1_btb_read_pc <= (others => '0');
+    s_if1_btb_taken <= '0';
+    s_if1_btb_target <= (others => '0');
+  end generate;
 
   -- We need to latch PC corrections and BTB PC predictions when IF1 is stalled,
   -- so that they are not lost.

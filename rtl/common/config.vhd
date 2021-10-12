@@ -90,6 +90,9 @@ package config is
     -- Support the FSQRT instruction.
     -- NOTE: This has not yet been implemented, so this flag should always be set to false.
     HAS_SQRT : boolean;
+
+    -- Enable the branch predictor.
+    ENABLE_BRANCH_PREDICTOR : boolean;
   end record T_CORE_CONFIG;
 
 
@@ -102,7 +105,8 @@ package config is
     HAS_DIV => true,
     HAS_SA => true,
     HAS_FP => true,
-    HAS_SQRT => false
+    HAS_SQRT => false,
+    ENABLE_BRANCH_PREDICTOR => true
   );
 
   -- Minimal configuration.
@@ -114,7 +118,8 @@ package config is
     HAS_DIV => false,
     HAS_SA => false,
     HAS_FP => false,
-    HAS_SQRT => false
+    HAS_SQRT => false,
+    ENABLE_BRANCH_PREDICTOR => false
   );
 
   -- Default configuration: Full.
