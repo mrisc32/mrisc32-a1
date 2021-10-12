@@ -95,7 +95,8 @@ architecture rtl of branch_predictor is
   signal s_invalidating : std_logic;
   signal s_invalidate_adr : unsigned(C_LOG2_ENTRIES-1 downto 0);
 
-  signal s_global_history : std_logic_vector(C_GHR_BITS-1 downto 0);
+  signal s_gh_history : std_logic_vector(C_GHR_BITS-1 downto 0);
+  signal s_gh_correct_history : std_logic_vector(C_GHR_BITS-1 downto 0);
 
   signal s_prev_read_en : std_logic;
   signal s_prev_read_pc : std_logic_vector(C_WORD_SIZE-1 downto 0);
@@ -124,6 +125,8 @@ architecture rtl of branch_predictor is
   signal s_updated_counter : std_logic_vector(C_COUNTER_SIZE-1 downto 0);
   signal s_counter_predicts_taken : std_logic;
   signal s_counter_write_data : std_logic_vector(C_COUNTER_SIZE-1 downto 0);
+
+  signal s_predict_taken : std_logic;
 
   function table_address(pc : std_logic_vector; gh : std_logic_vector) return std_logic_vector is
   begin
@@ -231,20 +234,39 @@ begin
 
   --------------------------------------------------------------------------------------------------
   -- Global history.
+  --
+  -- The global history is a short bit pattern representing the taken/not taken state for the last
+  -- N executed branches. This bit pattern is used in combination with the least significant bits
+  -- of the PC to look up the branch information in the BTB.
   --------------------------------------------------------------------------------------------------
 
-  -- TODO(m): Extend this to use speculative and non-speculative histories, similarly to how the
-  -- RAS works.
   GH_GEN: if C_GHR_BITS > 0 generate
     process(i_clk, i_rst)
+      variable v_next_correct_history : std_logic_vector(C_GHR_BITS-1 downto 0);
     begin
       if i_rst = '1' then
-        s_global_history <= (others => '0');
+        s_gh_history <= (others => '0');
+        s_gh_correct_history <= (others => '0');
       elsif rising_edge(i_clk) then
-        if i_invalidate = '1' then
-          s_global_history <= (others => '0');
-        elsif i_write_branch_type /= C_BRANCH_NONE then
-          s_global_history <= i_write_is_taken & s_global_history(C_GHR_BITS-1 downto 1);
+        if s_invalidating = '1' then
+          s_gh_history <= (others => '0');
+          s_gh_correct_history <= (others => '0');
+        else
+          -- Update the "correct" GHR, based on branch commands from the EX1 stage.
+          -- Note that this is lagging behind the speculative state due to pipelining.
+          if i_write_branch_type = C_BRANCH_JUMP then
+            v_next_correct_history := i_write_is_taken & s_gh_correct_history(C_GHR_BITS-1 downto 1);
+          else
+            v_next_correct_history := s_gh_correct_history;
+          end if;
+          s_gh_correct_history <= v_next_correct_history;
+
+          -- Update the speculative GHR.
+          if i_cancel_speculation = '1' then
+            s_gh_history <= v_next_correct_history;
+          elsif s_got_match = '1' and s_got_branch_type = C_BRANCH_JUMP then
+            s_gh_history <= s_predict_taken & s_gh_history(C_GHR_BITS-1 downto 1);
+          end if;
         end if;
       end if;
     end process;
@@ -275,7 +297,7 @@ begin
 
   -- BTB lookup.
 
-  s_read_addr <= table_address(i_read_pc, s_global_history);
+  s_read_addr <= table_address(i_read_pc, s_gh_history);
 
   -- Decode the branch & target information.
   s_got_branch_type <= s_target_read_data(C_ENTRY_SIZE-1 downto C_ENTRY_SIZE-2);
@@ -283,7 +305,7 @@ begin
   s_btb_prediction <= s_target_read_data(C_ENTRY_SIZE-4 downto 0);
 
   -- Check the tag: Did we have a match?
-  s_got_match <= '1' when make_tag(s_prev_read_pc) = s_tag_read_data else '0';
+  s_got_match <= s_prev_read_en when make_tag(s_prev_read_pc) = s_tag_read_data else '0';
 
 
   -- BTB update.
@@ -306,7 +328,7 @@ begin
   end process;
 
   -- In the first cycle, read from the counter RAM.
-  s_counter_read_addr <= table_address(i_write_pc, s_global_history);
+  s_counter_read_addr <= table_address(i_write_pc, s_gh_history);
 
   -- Update the counter, and determine if the next prediction should be taken or not.
   s_updated_counter <= update_counter(s_counter_read_data, s_prev_write_is_taken);
@@ -441,7 +463,9 @@ begin
   --  * The target address of the branch.
   --------------------------------------------------------------------------------------------------
 
-  o_predict_taken <= s_prev_read_en and s_got_match and (s_got_taken or s_ras_predict_taken);
+  s_predict_taken <= s_got_taken or s_ras_predict_taken;
+
+  o_predict_taken <= s_got_match and s_predict_taken;
   o_predict_target <= s_ras_prediction & "00" when s_ras_predict_taken = '1' else
                       s_btb_prediction & "00";
 
