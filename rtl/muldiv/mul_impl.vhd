@@ -42,6 +42,7 @@ entity mul_impl is
     i_op : in T_MUL_OP;                                  -- Operation
     i_src_a : in std_logic_vector(WIDTH-1 downto 0);     -- Source operand A
     i_src_b : in std_logic_vector(WIDTH-1 downto 0);     -- Source operand B
+    i_src_c : in std_logic_vector(WIDTH-1 downto 0);     -- Source operand C (addend)
 
     -- Outputs (async).
     o_result : out std_logic_vector(WIDTH-1 downto 0) ;  -- Result
@@ -59,12 +60,14 @@ architecture rtl of mul_impl is
   signal s_is_signed_op : std_logic;
   signal s_m1_next_src_a : std_logic_vector(WIDTH downto 0);
   signal s_m1_next_src_b : std_logic_vector(WIDTH downto 0);
+  signal s_m1_next_addend : std_logic_vector(WIDTH-1 downto 0);
   signal s_m1_next_return_bits : T_RETURN_BITS;
   signal s_m1_next_round_q : std_logic;
   signal s_m1_next_saturated_q : std_logic;
 
   signal s_m1_src_a : std_logic_vector(WIDTH downto 0);
   signal s_m1_src_b : std_logic_vector(WIDTH downto 0);
+  signal s_m1_addend : std_logic_vector(WIDTH-1 downto 0);
   signal s_m1_return_bits : T_RETURN_BITS;
   signal s_m1_round_q : std_logic;
   signal s_m1_saturated_q : std_logic;
@@ -74,6 +77,7 @@ architecture rtl of mul_impl is
   signal s_m2_next_product : signed(WIDTH*2+1 downto 0);
 
   signal s_m2_product : signed(WIDTH*2+1 downto 0);
+  signal s_m2_addend : signed(WIDTH-1 downto 0);
   signal s_m2_return_bits : T_RETURN_BITS;
   signal s_m2_round_q : signed(1 downto 0);
   signal s_m2_saturated_q : std_logic;
@@ -82,6 +86,7 @@ architecture rtl of mul_impl is
   -- M3 signals.
   signal s_m3_rounded_q : signed(WIDTH downto 0);
   signal s_m3_result_q : signed(WIDTH downto 0);
+  signal s_m3_result_madd : signed(WIDTH-1 downto 0);
 
   function is_saturated(a: std_logic_vector; b: std_logic_vector) return std_logic is
   begin
@@ -107,26 +112,29 @@ begin
   -- Decode the multiplication operation.
   IsSignedMux: with i_op select
     s_is_signed_op <=
-        '0' when C_MUL_MUL | C_MUL_MULHIU,
-        '1' when C_MUL_MULHI | C_MUL_MULQ | C_MUL_MULQR,
+        '0' when C_MUL_MULHIU,
+        '1' when C_MUL_MUL | C_MUL_MULHI | C_MUL_MULQ | C_MUL_MULQR | C_MUL_MADD,
         '-' when others;
 
   ReturnBitsMux: with i_op select
     s_m1_next_return_bits <=
       Q_BITS when C_MUL_MULQ | C_MUL_MULQR,
-      LO_BITS when C_MUL_MUL,
+      LO_BITS when C_MUL_MUL | C_MUL_MADD,
       HI_BITS when others;
 
   RoundQMux: with i_op select
     s_m1_next_round_q <=
       '1' when C_MUL_MULQR,
-      '0' when C_MUL_MUL | C_MUL_MULHI | C_MUL_MULHIU | C_MUL_MULQ,
+      '0' when C_MUL_MUL | C_MUL_MULHI | C_MUL_MULHIU | C_MUL_MULQ | C_MUL_MADD,
       '-' when others;
 
   -- Widen the input signals (extend with a sign-bit for signed operations, or zero for unsigned
   -- operations).
   s_m1_next_src_a <= (i_src_a(WIDTH-1) and s_is_signed_op) & i_src_a;
   s_m1_next_src_b <= (i_src_b(WIDTH-1) and s_is_signed_op) & i_src_b;
+
+  -- Select addend for the MADD operation.
+  s_m1_next_addend <= i_src_c when i_op = C_MUL_MADD else (others => '0');
 
   -- Is the product saturated? (for Q numbers, let -1 * -1 -> +1)
   s_m1_next_saturated_q <= is_saturated(i_src_a, i_src_b);
@@ -137,6 +145,7 @@ begin
     if i_rst = '1' then
       s_m1_src_a <= (others => '0');
       s_m1_src_b <= (others => '0');
+      s_m1_addend <= (others => '0');
       s_m1_return_bits <= LO_BITS;
       s_m1_round_q <= '0';
       s_m1_saturated_q <= '0';
@@ -145,6 +154,7 @@ begin
       if i_stall = '0' then
         s_m1_src_a <= s_m1_next_src_a;
         s_m1_src_b <= s_m1_next_src_b;
+        s_m1_addend <= s_m1_next_addend;
         s_m1_return_bits <= s_m1_next_return_bits;
         s_m1_round_q <= s_m1_next_round_q;
         s_m1_saturated_q <= s_m1_next_saturated_q;
@@ -167,6 +177,7 @@ begin
   begin
     if i_rst = '1' then
       s_m2_product <= (others => '0');
+      s_m2_addend <= (others => '0');
       s_m2_return_bits <= LO_BITS;
       s_m2_enable <= '0';
       s_m2_round_q <= "00";
@@ -174,6 +185,7 @@ begin
     elsif rising_edge(i_clk) then
       if i_stall = '0' then
         s_m2_product <= s_m2_next_product;
+        s_m2_addend <= signed(s_m1_addend);
         s_m2_return_bits <= s_m1_return_bits;
         s_m2_round_q <= "0" & s_m1_round_q;
         s_m2_saturated_q <= s_m1_saturated_q;
@@ -195,11 +207,14 @@ begin
   s_m3_result_q <= to_signed(MAX_INT, WIDTH) & "0" when s_m2_saturated_q = '1' else
                    s_m3_rounded_q;
 
+  -- We always add the addend for LO_BITS products (it's zero for non-MADD operations).
+  s_m3_result_madd <= s_m2_product(WIDTH-1 downto 0) + s_m2_addend;
+
   -- Select which bits of the result to return.
   ResultMux: with s_m2_return_bits select
     o_result <=
-      std_logic_vector(s_m3_result_q(WIDTH downto 1))             when Q_BITS,
-      std_logic_vector(s_m2_product(WIDTH-1 downto 0))         when LO_BITS,
+      std_logic_vector(s_m3_result_q(WIDTH downto 1))          when Q_BITS,
+      std_logic_vector(s_m3_result_madd)                       when LO_BITS,
       std_logic_vector(s_m2_product(WIDTH*2-1 downto WIDTH))   when HI_BITS,
       (others => '-')                                          when others;
 

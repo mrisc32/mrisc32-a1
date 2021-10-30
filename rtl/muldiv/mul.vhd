@@ -43,6 +43,7 @@ entity mul is
     i_packed_mode : in T_PACKED_MODE;
     i_src_a : in std_logic_vector(C_WORD_SIZE-1 downto 0);  -- Source operand A
     i_src_b : in std_logic_vector(C_WORD_SIZE-1 downto 0);  -- Source operand B
+    i_src_c : in std_logic_vector(C_WORD_SIZE-1 downto 0);  -- Source operand C (addend)
 
     -- Outputs (async).
     o_result : out std_logic_vector(C_WORD_SIZE-1 downto 0);  -- Result
@@ -81,6 +82,7 @@ begin
       i_op => i_op,
       i_src_a => i_src_a,
       i_src_b => i_src_b,
+      i_src_c => i_src_c,
       o_result => s_mul32_result,
       o_result_ready => s_mul32_result_ready
     );
@@ -102,6 +104,7 @@ begin
           i_op => i_op,
           i_src_a => i_src_a((16*k)-1 downto 16*(k-1)),
           i_src_b => i_src_b((16*k)-1 downto 16*(k-1)),
+          i_src_c => i_src_c((16*k)-1 downto 16*(k-1)),
           o_result => s_mul16_result((16*k)-1 downto 16*(k-1)),
           o_result_ready => s_result_ready(k)
         );
@@ -128,6 +131,7 @@ begin
           i_op => i_op,
           i_src_a => i_src_a((8*k)-1 downto 8*(k-1)),
           i_src_b => i_src_b((8*k)-1 downto 8*(k-1)),
+          i_src_c => i_src_c((8*k)-1 downto 8*(k-1)),
           o_result => s_mul8_result((8*k)-1 downto 8*(k-1)),
           o_result_ready => s_result_ready(k)
         );

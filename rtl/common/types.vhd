@@ -157,6 +157,7 @@ package types is
   constant C_MUL_MULHIU : T_MUL_OP := "110";
   constant C_MUL_MULQ   : T_MUL_OP := "111";
   constant C_MUL_MULQR  : T_MUL_OP := "000";
+  constant C_MUL_MADD   : T_MUL_OP := "001";
 
   -- FPU operations.
   constant C_FPU_OP_SIZE : integer := 6;
