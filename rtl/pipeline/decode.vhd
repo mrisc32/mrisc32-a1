@@ -154,8 +154,7 @@ architecture rtl of decode is
   signal s_is_mem_op : std_logic;
   signal s_is_mem_store : std_logic;
 
-  signal s_is_sel : std_logic;
-  signal s_is_madd : std_logic;
+  signal s_is_int_three_src_group : std_logic;
   signal s_is_three_src_op : std_logic;
 
   signal s_is_fdiv : std_logic;
@@ -377,17 +376,29 @@ begin
   s_is_type_b_fpu <= '1' when (s_is_type_b = '1' and s_op_low(1 downto 0) = "01") else '0';
 
   -- Is this an operation with three source operands?
-  s_is_sel <= '1' when (s_is_type_a = '1' and s_op_low = "0" & C_ALU_SEL) or
-                       (s_is_type_c = '1' and s_op_high = C_ALU_SEL) else '0';
-  s_is_madd <= '1' when (s_is_type_a = '1' and s_op_low = "0111001");  -- MADD: 0111001
-  s_is_three_src_op <= s_is_mem_store or s_is_sel or s_is_madd;
+  -- The integer "3 src group" is: MADD, ?, SEL, IBF
+  s_is_int_three_src_group <= '1' when (s_is_type_a = '1' and s_op_low(6 downto 2) = "01011")
+                                  or   (s_is_type_c = '1' and s_op_high(5 downto 2) = "1011")
+                              else '0';
+  s_is_three_src_op <= s_is_mem_store or s_is_int_three_src_group;
 
   -- Is this FDIV?
   s_is_fdiv <= '1' when (s_is_type_a = '1' and s_op_low = "1" & C_FPU_FDIV) else '0';
 
   -- Is this a DIV, MUL, FPU or SAU op?
-  s_is_div_op <= '1' when (s_is_type_a = '1' and s_op_low(6 downto 2) = "01100") or s_is_fdiv = '1' else '0';
-  s_is_mul_op <= '1' when s_is_type_a = '1' and (s_op_low(6 downto 2) = "01101" or s_op_low = "0111000" or s_op_low = "0111001") else '0';  -- MULQR: 0111000, MADD: 0111001
+  s_is_div_op <= '1' when (s_is_type_a = '1' and s_op_low(6 downto 2) = "01010") or
+                          (s_is_type_c = '1' and s_op_high(5 downto 2) = "1010") or
+                          s_is_fdiv = '1'
+                 else '0';
+  s_is_mul_op <= '1' when (s_is_type_a = '1' and (s_op_low = "0100111" or  -- MUL
+                                                  s_op_low = "0101100" or  -- MADD
+                                                  s_op_low = "0110000" or  -- MULHI
+                                                  s_op_low = "0110001" or  -- MULHIU
+                                                  s_op_low = "0110010" or  -- MULQ
+                                                  s_op_low = "0110011"))   -- MULQR
+                     or   (s_is_type_c = '1' and (s_op_high = "100111" or  -- MUL
+                                                  s_op_high = "101100"))   -- MADD
+                 else '0';
   s_is_fpu_op <= '1' when s_is_type_a = '1' and s_op_low(6 downto 5) = "10" and s_is_fdiv = '0' else s_is_type_b_fpu;
   s_is_sau_op <= '1' when s_is_type_a = '1' and s_op_low(6 downto 4) = "110" else '0';
 
@@ -404,7 +415,7 @@ begin
   -- Determine packed mode.
   -- Note: Only instructions that support packed operation will care about this value, so it is safe
   -- to just pick bits 7 and 8 from the instruction word without masking against instruction type,
-  -- as long as this is a format A instruction.
+  -- as long as this is a format A or B instruction.
   s_packed_mode <= i_instr(8 downto 7) when s_is_type_a = '1' or s_is_type_b = '1' else C_PACKED_NONE;
 
   -- What source registers are required for this operation?
@@ -551,7 +562,7 @@ begin
                    (others => '0');
 
   -- Will this instruction write to a register?
-  -- The following registers are the MRISC32 versions of /dev/null: z, vz and pc.
+  -- The following registers are the MRISC32 versions of /dev/null: z and vz.
   s_dst_reg.is_target <= '1' when s_dst_reg.reg /= to_vector(C_Z_REG, C_LOG2_NUM_REGS) else '0';
 
   -- Select target vector element.
@@ -588,14 +599,16 @@ begin
       s_op_high;
 
   -- Select division operation.
-  -- Map the low order bits of the low order opcode directly to the division unit, except for
+  -- Map the low order bits of the opcode directly to the division unit, except for
   -- for FDIV, which is decoded separately.
   s_div_op <= C_DIV_FDIV when s_is_fdiv = '1' else
-              "0" & s_op_low(C_DIV_OP_SIZE-2 downto 0);
+              "0" & s_op_low(C_DIV_OP_SIZE-2 downto 0) when s_is_type_a = '1' else
+              "0" & s_op_high(C_DIV_OP_SIZE-2 downto 0);
 
   -- Select multiply operation.
-  -- Map the low order bits of the low order opcode directly to the multiply unit.
-  s_mul_op <= s_op_low(C_MUL_OP_SIZE-1 downto 0);
+  -- Map the low order bits of the opcode directly to the multiply unit.
+  s_mul_op <= s_op_low(C_MUL_OP_SIZE-1 downto 0) when s_is_type_a = '1' else
+              s_op_high(C_MUL_OP_SIZE-1 downto 0);
 
   -- Select FPU operation.
   s_fpu_op(C_FPU_OP_SIZE-1) <= s_is_type_b_fpu;

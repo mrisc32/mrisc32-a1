@@ -121,15 +121,18 @@ package types is
   constant C_ALU_MAX    : T_ALU_OP := "011001";
   constant C_ALU_MINU   : T_ALU_OP := "011010";
   constant C_ALU_MAXU   : T_ALU_OP := "011011";
-  constant C_ALU_SEL    : T_ALU_OP := "011100";
-  constant C_ALU_SHUF   : T_ALU_OP := "011101";
 
-  constant C_ALU_SEQ    : T_ALU_OP := "011110";
-  constant C_ALU_SNE    : T_ALU_OP := "011111";
-  constant C_ALU_SLT    : T_ALU_OP := "100000";
-  constant C_ALU_SLTU   : T_ALU_OP := "100001";
-  constant C_ALU_SLE    : T_ALU_OP := "100010";
-  constant C_ALU_SLEU   : T_ALU_OP := "100011";
+  constant C_ALU_SEQ    : T_ALU_OP := "011100";
+  constant C_ALU_SNE    : T_ALU_OP := "011101";
+  constant C_ALU_SLT    : T_ALU_OP := "011110";
+  constant C_ALU_SLTU   : T_ALU_OP := "011111";
+  constant C_ALU_SLE    : T_ALU_OP := "100000";
+  constant C_ALU_SLEU   : T_ALU_OP := "100001";
+
+  constant C_ALU_SHUF   : T_ALU_OP := "100010";
+
+  constant C_ALU_SEL    : T_ALU_OP := "101110";
+  constant C_ALU_IBF    : T_ALU_OP := "101111";
 
   constant C_ALU_PACK     : T_ALU_OP := "111010";
   constant C_ALU_PACKS    : T_ALU_OP := "111011";
@@ -152,12 +155,12 @@ package types is
   constant C_MUL_OP_SIZE : integer := 3;
   subtype T_MUL_OP is std_logic_vector(C_MUL_OP_SIZE-1 downto 0);
 
-  constant C_MUL_MUL    : T_MUL_OP := "100";
-  constant C_MUL_MULHI  : T_MUL_OP := "101";
-  constant C_MUL_MULHIU : T_MUL_OP := "110";
-  constant C_MUL_MULQ   : T_MUL_OP := "111";
-  constant C_MUL_MULQR  : T_MUL_OP := "000";
-  constant C_MUL_MADD   : T_MUL_OP := "001";
+  constant C_MUL_MUL    : T_MUL_OP := "111";
+  constant C_MUL_MADD   : T_MUL_OP := "100";
+  constant C_MUL_MULHI  : T_MUL_OP := "000";
+  constant C_MUL_MULHIU : T_MUL_OP := "001";
+  constant C_MUL_MULQ   : T_MUL_OP := "010";
+  constant C_MUL_MULQR  : T_MUL_OP := "011";
 
   -- FPU operations.
   constant C_FPU_OP_SIZE : integer := 6;

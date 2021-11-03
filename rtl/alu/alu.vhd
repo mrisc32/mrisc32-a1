@@ -217,20 +217,19 @@ begin
   -- Shift operations
   ------------------------------------------------------------------------------------------------
 
-  -- Note: These MUX:es should be optimized by the synthesis tool to only depend on a single
-  -- bit of i_op.
   ShiftIsRightMux: with i_op select
     s_shift_is_right <=
         '1' when C_ALU_EBF | C_ALU_EBFU,
-        '0' when C_ALU_MKBF,
+        '0' when C_ALU_MKBF | C_ALU_IBF,
         '-' when others;
 
   ShiftIsArithmeticMux: with i_op select
     s_shift_is_arithmetic <=
         '1' when C_ALU_EBF,
-        '0' when C_ALU_EBFU | C_ALU_MKBF,
+        '0' when C_ALU_EBFU | C_ALU_MKBF | C_ALU_IBF,
         '-' when others;
 
+  -- TODO(m): Implement IBF!
   AluShifter: entity work.shift32
     generic map (
       CONFIG => CONFIG
@@ -261,7 +260,7 @@ begin
         s_and_res when C_ALU_AND,
         s_or_res  when C_ALU_OR,
         s_xor_res when C_ALU_XOR,
-        s_shifter_res when C_ALU_EBF | C_ALU_EBFU | C_ALU_MKBF,
+        s_shifter_res when C_ALU_EBF | C_ALU_EBFU | C_ALU_MKBF | C_ALU_IBF,
         s_add_res when C_ALU_ADD,
         s_sub_res when C_ALU_SUB,
         s_min_res when C_ALU_MIN,
