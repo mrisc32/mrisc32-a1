@@ -33,11 +33,11 @@ entity shift32 is
     CONFIG : T_CORE_CONFIG
   );
   port(
-    i_right       : in  std_logic;  -- '1' for right shifts, '0' for left
-    i_arithmetic  : in  std_logic;  -- '1' for arihtmetic shifts, '0' for logic
-    i_src         : in  std_logic_vector(31 downto 0);
-    i_ctrl        : in  std_logic_vector(31 downto 0);
-    i_packed_mode : in  T_PACKED_MODE;
+    i_op          : in T_ALU_OP;
+    i_src         : in std_logic_vector(31 downto 0);
+    i_ctrl        : in std_logic_vector(31 downto 0);
+    i_dst         : in std_logic_vector(31 downto 0);
+    i_packed_mode : in T_PACKED_MODE;
     o_result      : out std_logic_vector(31 downto 0)
   );
 end shift32;
@@ -103,12 +103,35 @@ architecture rtl of shift32 is
     return v_width;
   end function;
 
+  signal s_right : std_logic;
+  signal s_arithmetic : std_logic;
+  signal s_insert : std_logic;
+
   signal s_result8 : std_logic_vector(31 downto 0);
   signal s_result16 : std_logic_vector(31 downto 0);
   signal s_result32 : std_logic_vector(31 downto 0);
 begin
+  -- Decode the operation.
+  IsRightMux: with i_op select
+    s_right <=
+        '1' when C_ALU_EBF | C_ALU_EBFU,
+        '0' when C_ALU_MKBF | C_ALU_IBF,
+        '-' when others;
+
+  IsArithmeticMux: with i_op select
+    s_arithmetic <=
+        '1' when C_ALU_EBF,
+        '0' when C_ALU_EBFU | C_ALU_MKBF | C_ALU_IBF,
+        '-' when others;
+
+  IsInsertMux: with i_op select
+    s_insert <=
+        '1' when C_ALU_IBF,
+        '0' when C_ALU_EBF | C_ALU_EBFU | C_ALU_MKBF,
+        '-' when others;
+
   -- Word operation.
-  process(i_right, i_arithmetic, i_src, i_ctrl)
+  process(s_right, s_arithmetic, s_insert, i_src, i_ctrl, i_dst)
     variable v_offset : natural;
     variable v_width : positive;
     variable v_mask_width : positive;
@@ -124,14 +147,14 @@ begin
     end if;
 
     -- Shift.
-    if i_right = '1' then
+    if s_right = '1' then
       v_shifted := std_logic_vector(shift_right(unsigned(i_src), v_offset));
     else
       v_shifted := std_logic_vector(shift_left(unsigned(i_src), v_offset));
     end if;
 
     -- Get mask.
-    if i_right = '1' then
+    if s_right = '1' then
       v_mask_width := v_width;
     else
       v_mask_width := v_width + v_offset;
@@ -140,7 +163,12 @@ begin
 
     -- Handle sign. The final result = (shifted & mask) | (sign & ~mask)
     v_sign_bit_idx := v_width + v_offset - 1;
-    if i_arithmetic = '1' and i_src(v_sign_bit_idx) = '1' then
+    if s_insert = '1' then
+      if v_offset /= 0 then
+        v_mask := v_mask and not C_LUT32(v_offset - 1);
+      end if;
+      s_result32 <= (v_shifted and v_mask) or (i_dst and not v_mask);
+    elsif s_arithmetic = '1' and i_src(v_sign_bit_idx) = '1' then
       s_result32 <= (v_shifted and v_mask) or (not v_mask);
     else
       s_result32 <= (v_shifted and v_mask);
@@ -149,7 +177,7 @@ begin
 
   PACKED_GEN: if CONFIG.HAS_PO generate
     -- Packed byte operation.
-    process(i_right, i_arithmetic, i_src, i_ctrl)
+    process(s_right, s_arithmetic, s_insert, i_src, i_ctrl, i_dst)
       variable v_lo : natural;
       variable v_hi : natural;
       variable v_offset : natural;
@@ -171,14 +199,14 @@ begin
         end if;
 
         -- Shift.
-        if i_right = '1' then
+        if s_right = '1' then
           v_shifted := std_logic_vector(shift_right(unsigned(i_src(v_hi downto v_lo)), v_offset));
         else
           v_shifted := std_logic_vector(shift_left(unsigned(i_src(v_hi downto v_lo)), v_offset));
         end if;
 
         -- Get mask.
-        if i_right = '1' then
+        if s_right = '1' then
           v_mask_width := v_width;
         else
           v_mask_width := v_width + v_offset;
@@ -187,7 +215,12 @@ begin
 
         -- Handle sign. The final result = (shifted & mask) | (sign & ~mask)
         v_sign_bit_idx := v_width + v_offset - 1;
-        if i_arithmetic = '1' and i_src(v_sign_bit_idx + v_lo) = '1' then
+        if s_insert = '1' then
+          if v_offset /= 0 then
+            v_mask := v_mask and not C_LUT8(v_offset - 1);
+          end if;
+          s_result8(v_hi downto v_lo) <= (v_shifted and v_mask) or (i_dst(v_hi downto v_lo) and not v_mask);
+        elsif s_arithmetic = '1' and i_src(v_sign_bit_idx + v_lo) = '1' then
           s_result8(v_hi downto v_lo) <= (v_shifted and v_mask) or (not v_mask);
         else
           s_result8(v_hi downto v_lo) <= (v_shifted and v_mask);
@@ -196,7 +229,7 @@ begin
     end process;
 
     -- Packed half-word operation.
-    process(i_right, i_arithmetic, i_src, i_ctrl)
+    process(s_right, s_arithmetic, s_insert, i_src, i_ctrl, i_dst)
       variable v_lo : natural;
       variable v_hi : natural;
       variable v_offset : natural;
@@ -218,14 +251,14 @@ begin
         end if;
 
         -- Shift.
-        if i_right = '1' then
+        if s_right = '1' then
           v_shifted := std_logic_vector(shift_right(unsigned(i_src(v_hi downto v_lo)), v_offset));
         else
           v_shifted := std_logic_vector(shift_left(unsigned(i_src(v_hi downto v_lo)), v_offset));
         end if;
 
         -- Get mask.
-        if i_right = '1' then
+        if s_right = '1' then
           v_mask_width := v_width;
         else
           v_mask_width := v_width + v_offset;
@@ -234,7 +267,12 @@ begin
 
         -- Handle sign. The final result = (shifted & mask) | (sign & ~mask)
         v_sign_bit_idx := v_width + v_offset - 1;
-        if i_arithmetic = '1' and i_src(v_sign_bit_idx + v_lo) = '1' then
+        if s_insert = '1' then
+          if v_offset /= 0 then
+            v_mask := v_mask and not C_LUT16(v_offset - 1);
+          end if;
+          s_result16(v_hi downto v_lo) <= (v_shifted and v_mask) or (i_dst(v_hi downto v_lo) and not v_mask);
+        elsif s_arithmetic = '1' and i_src(v_sign_bit_idx + v_lo) = '1' then
           s_result16(v_hi downto v_lo) <= (v_shifted and v_mask) or (not v_mask);
         else
           s_result16(v_hi downto v_lo) <= (v_shifted and v_mask);

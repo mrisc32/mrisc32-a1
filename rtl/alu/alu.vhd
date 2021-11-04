@@ -63,10 +63,6 @@ architecture rtl of alu is
   signal s_bitwise_a : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_bitwise_b : std_logic_vector(C_WORD_SIZE-1 downto 0);
 
-  -- Signals for the shifter.
-  signal s_shift_is_right : std_logic;
-  signal s_shift_is_arithmetic : std_logic;
-
 begin
   ------------------------------------------------------------------------------------------------
   -- CPUID
@@ -217,28 +213,15 @@ begin
   -- Shift operations
   ------------------------------------------------------------------------------------------------
 
-  ShiftIsRightMux: with i_op select
-    s_shift_is_right <=
-        '1' when C_ALU_EBF | C_ALU_EBFU,
-        '0' when C_ALU_MKBF | C_ALU_IBF,
-        '-' when others;
-
-  ShiftIsArithmeticMux: with i_op select
-    s_shift_is_arithmetic <=
-        '1' when C_ALU_EBF,
-        '0' when C_ALU_EBFU | C_ALU_MKBF | C_ALU_IBF,
-        '-' when others;
-
-  -- TODO(m): Implement IBF!
   AluShifter: entity work.shift32
     generic map (
       CONFIG => CONFIG
     )
     port map (
-      i_right => s_shift_is_right,
-      i_arithmetic => s_shift_is_arithmetic,
+      i_op => i_op,
       i_src => i_src_a,
       i_ctrl => i_src_b,
+      i_dst => i_src_c,
       i_packed_mode => i_packed_mode,
       o_result => s_shifter_res
     );
