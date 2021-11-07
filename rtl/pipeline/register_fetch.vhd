@@ -66,6 +66,7 @@ entity register_fetch is
     i_src_a_mode : in T_SRC_A_MODE;
     i_src_b_mode : in T_SRC_B_MODE;
     i_src_c_mode : in T_SRC_C_MODE;
+    i_src_a_is_z : in std_logic;
     i_pc : in std_logic_vector(C_WORD_SIZE-1 downto 0);
     i_imm : in std_logic_vector(C_WORD_SIZE-1 downto 0);
     i_is_first_vector_op_cycle : in std_logic;
@@ -125,6 +126,7 @@ entity register_fetch is
     o_src_a : out std_logic_vector(C_WORD_SIZE-1 downto 0);
     o_src_b : out std_logic_vector(C_WORD_SIZE-1 downto 0);
     o_src_c : out std_logic_vector(C_WORD_SIZE-1 downto 0);
+    o_src_a_is_z : out std_logic;
     o_is_first_vector_op_cycle : out std_logic;
     o_address_offset_is_stride : out std_logic;
     o_dst_reg : out T_DST_REG;
@@ -334,6 +336,7 @@ begin
       o_src_a <= (others => '0');
       o_src_b <= (others => '0');
       o_src_c <= (others => '0');
+      o_src_a_is_z <= '0';
       o_is_first_vector_op_cycle <= '0';
       o_address_offset_is_stride <= '0';
       o_dst_reg.is_target <= '0';
@@ -360,6 +363,7 @@ begin
         o_src_a <= s_src_a;
         o_src_b <= s_src_b;
         o_src_c <= s_src_c;
+        o_src_a_is_z <= i_src_a_is_z;
         o_is_first_vector_op_cycle <= i_is_first_vector_op_cycle;
         o_address_offset_is_stride <= i_address_offset_is_stride;
         o_dst_reg <= s_dst_reg_masked;

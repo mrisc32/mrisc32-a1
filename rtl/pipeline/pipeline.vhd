@@ -89,6 +89,7 @@ architecture rtl of pipeline is
   signal s_id_src_a_mode : T_SRC_A_MODE;
   signal s_id_src_b_mode : T_SRC_B_MODE;
   signal s_id_src_c_mode : T_SRC_C_MODE;
+  signal s_id_src_a_is_z : std_logic;
   signal s_id_pc : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_id_imm : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_id_is_first_vector_op_cycle : std_logic;
@@ -128,6 +129,7 @@ architecture rtl of pipeline is
   signal s_rf_src_a : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_rf_src_b : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_rf_src_c : std_logic_vector(C_WORD_SIZE-1 downto 0);
+  signal s_rf_src_a_is_z : std_logic;
   signal s_rf_is_first_vector_op_cycle : std_logic;
   signal s_rf_address_offset_is_stride : std_logic;
 
@@ -317,6 +319,7 @@ begin
       o_src_a_mode => s_id_src_a_mode,
       o_src_b_mode => s_id_src_b_mode,
       o_src_c_mode => s_id_src_c_mode,
+      o_src_a_is_z => s_id_src_a_is_z,
       o_pc => s_id_pc,
       o_imm => s_id_imm,
       o_is_first_vector_op_cycle => s_id_is_first_vector_op_cycle,
@@ -379,6 +382,7 @@ begin
       i_src_a_mode => s_id_src_a_mode,
       i_src_b_mode => s_id_src_b_mode,
       i_src_c_mode => s_id_src_c_mode,
+      i_src_a_is_z => s_id_src_a_is_z,
       i_pc => s_id_pc,
       i_imm => s_id_imm,
       i_is_first_vector_op_cycle => s_id_is_first_vector_op_cycle,
@@ -438,6 +442,7 @@ begin
       o_src_a => s_rf_src_a,
       o_src_b => s_rf_src_b,
       o_src_c => s_rf_src_c,
+      o_src_a_is_z => s_rf_src_a_is_z,
       o_is_first_vector_op_cycle => s_rf_is_first_vector_op_cycle,
       o_address_offset_is_stride => s_rf_address_offset_is_stride,
       o_dst_reg => s_rf_dst_reg,
@@ -481,6 +486,7 @@ begin
       i_src_a => s_rf_src_a,
       i_src_b => s_rf_src_b,
       i_src_c => s_rf_src_c,
+      i_src_a_is_z => s_rf_src_a_is_z,
       i_is_first_vector_op_cycle => s_rf_is_first_vector_op_cycle,
       i_address_offset_is_stride => s_rf_address_offset_is_stride,
       i_dst_reg => s_rf_dst_reg,

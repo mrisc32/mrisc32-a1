@@ -76,6 +76,7 @@ entity decode is
     o_src_a_mode : out T_SRC_A_MODE;
     o_src_b_mode : out T_SRC_B_MODE;
     o_src_c_mode : out T_SRC_C_MODE;
+    o_src_a_is_z : out std_logic;
     o_pc : out std_logic_vector(C_WORD_SIZE-1 downto 0);
     o_imm : out std_logic_vector(C_WORD_SIZE-1 downto 0);
     o_is_first_vector_op_cycle : out std_logic;
@@ -109,6 +110,7 @@ architecture rtl of decode is
   signal s_reg_a : std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
   signal s_reg_b : std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
   signal s_reg_c : std_logic_vector(C_LOG2_NUM_REGS-1 downto 0);
+  signal s_src_a_is_z : std_logic;
   signal s_src_c_is_pc : std_logic;
   signal s_imm_type : IMM_TYPE_T;
   signal s_imm_from_instr : std_logic_vector(C_WORD_SIZE-1 downto 0);
@@ -343,6 +345,9 @@ begin
   s_reg_a <= i_instr(20 downto 16);
   s_reg_b <= i_instr(13 downto 9);
   s_reg_c <= i_instr(25 downto 21);  -- Usually destination, somtimes source.
+
+  -- Some instructions (XCHGSR) care if a register is the Z register.
+  s_src_a_is_z <= '1' when s_reg_a = "00000" and (s_is_type_a or s_is_type_b or s_is_type_c) = '1' else '0';
 
   -- Special re-mapping of register R31 to PC for J/JL instructions.
   s_src_c_is_pc <= '1' when s_op_high(5 downto 1) = "11000" and
@@ -666,6 +671,7 @@ begin
       o_src_a_mode <= (others => '0');
       o_src_b_mode <= (others => '0');
       o_src_c_mode <= (others => '0');
+      o_src_a_is_z <= '0';
       o_pc <= (others => '0');
       o_imm <= (others => '0');
       o_is_first_vector_op_cycle <= '0';
@@ -711,6 +717,7 @@ begin
         o_src_a_mode <= s_src_a_mode;
         o_src_b_mode <= s_src_b_mode;
         o_src_c_mode <= s_src_c_mode;
+        o_src_a_is_z <= s_src_a_is_z;
         o_pc <= i_pc;
         o_imm <= s_imm;
         o_is_first_vector_op_cycle <= s_is_first_vector_op_cycle;

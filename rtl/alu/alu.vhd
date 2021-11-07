@@ -32,6 +32,7 @@ entity alu is
     i_src_a : in std_logic_vector(C_WORD_SIZE-1 downto 0);   -- Source operand A
     i_src_b : in std_logic_vector(C_WORD_SIZE-1 downto 0);   -- Source operand B
     i_src_c : in std_logic_vector(C_WORD_SIZE-1 downto 0);   -- Source operand C
+    i_src_a_is_z : in std_logic;                             -- Is A reg Z?
     i_packed_mode : in T_PACKED_MODE;                        -- Packed mode
     o_result : out std_logic_vector(C_WORD_SIZE-1 downto 0)  -- ALU result
   );
@@ -40,6 +41,7 @@ end;
 architecture rtl of alu is
   -- Intermediate (concurrent) operation results.
   signal s_cpuid_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
+  signal s_xchgsr_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_and_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_or_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_xor_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
@@ -59,13 +61,16 @@ architecture rtl of alu is
   signal s_popcnt_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_ldi_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
 
+  -- Signals for XCHGSR.
+  signal s_xchgsr_we : std_logic;
+
   -- Signals for the bitwise operations.
   signal s_bitwise_a : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_bitwise_b : std_logic_vector(C_WORD_SIZE-1 downto 0);
 
 begin
   ------------------------------------------------------------------------------------------------
-  -- CPUID
+  -- CPUID - DEPRECATED!
   ------------------------------------------------------------------------------------------------
 
   CPUID: entity work.cpuid
@@ -76,6 +81,24 @@ begin
       i_src_a => i_src_a,
       i_src_b => i_src_b,
       o_result => s_cpuid_res
+    );
+
+
+  ------------------------------------------------------------------------------------------------
+  -- XCHGSR
+  ------------------------------------------------------------------------------------------------
+
+  s_xchgsr_we <= not i_src_a_is_z;
+
+  XCHGSR: entity work.xchgsr
+    generic map (
+      CONFIG => CONFIG
+    )
+    port map (
+      i_reg_write => i_src_a,
+      i_reg_read => i_src_b,
+      i_we => s_xchgsr_we,
+      o_result => s_xchgsr_res
     );
 
 
@@ -240,6 +263,7 @@ begin
   AluMux: with i_op select
     o_result <=
         s_cpuid_res when C_ALU_CPUID,
+        s_xchgsr_res when C_ALU_XCHGSR,
         s_and_res when C_ALU_AND,
         s_or_res  when C_ALU_OR,
         s_xor_res when C_ALU_XOR,

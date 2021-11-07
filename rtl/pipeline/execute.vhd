@@ -45,6 +45,7 @@ entity execute is
     i_src_a : in std_logic_vector(C_WORD_SIZE-1 downto 0);
     i_src_b : in std_logic_vector(C_WORD_SIZE-1 downto 0);
     i_src_c : in std_logic_vector(C_WORD_SIZE-1 downto 0);
+    i_src_a_is_z : in std_logic;
     i_is_first_vector_op_cycle : in std_logic;
     i_address_offset_is_stride : in std_logic;
     i_dst_reg : in T_DST_REG;
@@ -439,6 +440,7 @@ begin
       i_src_a => i_src_a,
       i_src_b => i_src_b,
       i_src_c => i_src_c,
+      i_src_a_is_z => i_src_a_is_z,
       i_packed_mode => i_packed_mode,
       o_result => s_alu_result
     );

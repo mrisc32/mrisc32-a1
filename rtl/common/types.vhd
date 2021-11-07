@@ -130,6 +130,7 @@ package types is
   constant C_ALU_SLEU   : T_ALU_OP := "100001";
 
   constant C_ALU_SHUF   : T_ALU_OP := "100010";
+  constant C_ALU_XCHGSR : T_ALU_OP := "100100";
 
   constant C_ALU_SEL    : T_ALU_OP := "101110";
   constant C_ALU_IBF    : T_ALU_OP := "101111";
