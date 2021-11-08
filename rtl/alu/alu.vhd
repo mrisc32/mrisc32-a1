@@ -95,8 +95,8 @@ begin
       CONFIG => CONFIG
     )
     port map (
-      i_reg_write => i_src_a,
       i_reg_read => i_src_b,
+      i_reg_write => i_src_a,
       i_we => s_xchgsr_we,
       o_result => s_xchgsr_res
     );

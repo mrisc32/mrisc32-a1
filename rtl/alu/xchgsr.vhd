@@ -37,9 +37,9 @@ end xchgsr;
 architecture rtl of xchgsr is
 begin
   -- Read system register.
-  process(i_reg_write)
+  process(i_reg_read)
   begin
-    if i_reg_write = x"00000000" then
+    if i_reg_read = x"00000000" then
       -- CPU_FEATURES_0 (CPU feature flags register 0):
       --   0: VM (Vector operatoin module)
       --   1: PM (Packed operation module)
@@ -50,10 +50,10 @@ begin
       o_result(2) <= to_std_logic(CONFIG.HAS_FP);
       o_result(3) <= to_std_logic(CONFIG.HAS_SA);
       o_result(C_WORD_SIZE-1 downto 4) <= (others => '0');
-    elsif i_reg_write = x"00000010" then
+    elsif i_reg_read = x"00000010" then
       -- MAX_VL (Maximum vector length register).
       o_result <= to_word(C_VEC_REG_ELEMENTS);
-    elsif i_reg_write = x"00000011" then
+    elsif i_reg_read = x"00000011" then
       -- LOG2_MAX_VL (Maximum vector length register).
       o_result <= to_word(C_LOG2_VEC_REG_ELEMENTS);
     else
