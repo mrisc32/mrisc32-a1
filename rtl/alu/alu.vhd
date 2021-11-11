@@ -40,7 +40,6 @@ end;
 
 architecture rtl of alu is
   -- Intermediate (concurrent) operation results.
-  signal s_cpuid_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_xchgsr_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_and_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_or_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
@@ -69,21 +68,6 @@ architecture rtl of alu is
   signal s_bitwise_b : std_logic_vector(C_WORD_SIZE-1 downto 0);
 
 begin
-  ------------------------------------------------------------------------------------------------
-  -- CPUID - DEPRECATED!
-  ------------------------------------------------------------------------------------------------
-
-  CPUID: entity work.cpuid
-    generic map (
-      CONFIG => CONFIG
-    )
-    port map (
-      i_src_a => i_src_a,
-      i_src_b => i_src_b,
-      o_result => s_cpuid_res
-    );
-
-
   ------------------------------------------------------------------------------------------------
   -- XCHGSR
   ------------------------------------------------------------------------------------------------
@@ -262,7 +246,6 @@ begin
 
   AluMux: with i_op select
     o_result <=
-        s_cpuid_res when C_ALU_CPUID,
         s_xchgsr_res when C_ALU_XCHGSR,
         s_and_res when C_ALU_AND,
         s_or_res  when C_ALU_OR,

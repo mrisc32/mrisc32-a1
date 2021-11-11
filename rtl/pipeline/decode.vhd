@@ -591,7 +591,7 @@ begin
       C_ALU_LDI when s_is_ldi = '1' else
 
       -- Use NOP for non-ALU ops and non-linking branches (they do not produce any result).
-      C_ALU_CPUID when s_alu_en = '0' or (s_is_branch and not s_is_link_branch) = '1' else
+      C_ALU_OR when s_alu_en = '0' or (s_is_branch and not s_is_link_branch) = '1' else
 
       -- We map the two-operand FUNC ID into the opcode for such instructions.
       -- Note: This is a hack. We should really send the entire FUNC code to the ALU.

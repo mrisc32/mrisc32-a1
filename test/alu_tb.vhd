@@ -45,6 +45,7 @@ begin
       i_src_b => s_src_b,
       i_src_c => s_src_c,
       i_packed_mode => s_packed_mode,
+      i_src_a_is_z => '0',
       o_result => s_result
     );
 
@@ -62,17 +63,6 @@ begin
     end record;
     type pattern_array is array (natural range <>) of pattern_type;
     constant patterns : pattern_array := (
-        (C_ALU_CPUID,
-          "00000000000000000000000000000000",
-          "00000000000000000000000000000000",
-          "00000000000000000000000000000000",
-          to_word(C_VEC_REG_ELEMENTS)),
-        (C_ALU_CPUID,
-          "00000000000000000000000000000000",
-          "01000000000000000000000000000000",
-          "00000000000000000000000000000000",
-          "00000000000000000000000000000000"),
-
         (C_ALU_LDI,
           "00000000000000000000000000000000",
           "11111111111101010110010101111001",

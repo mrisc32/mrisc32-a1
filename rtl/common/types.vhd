@@ -98,8 +98,6 @@ package types is
   constant C_ALU_OP_SIZE : integer := 6;
   subtype T_ALU_OP is std_logic_vector(C_ALU_OP_SIZE-1 downto 0);
 
-  constant C_ALU_CPUID  : T_ALU_OP := "000000";
-
   constant C_ALU_LDI    : T_ALU_OP := "000001";
 
   constant C_ALU_REV    : T_ALU_OP := "001000";  -- Two-operand (op=0x7c, func=0x00)
