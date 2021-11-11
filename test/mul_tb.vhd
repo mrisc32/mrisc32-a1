@@ -33,6 +33,7 @@ architecture behavioral of mul_tb is
   signal s_packed_mode : T_PACKED_MODE;
   signal s_src_a : std_logic_vector(31 downto 0);
   signal s_src_b : std_logic_vector(31 downto 0);
+  signal s_src_c : std_logic_vector(31 downto 0);
   signal s_result : std_logic_vector(31 downto 0);
   signal s_result_ready : std_logic;
 begin
@@ -49,6 +50,7 @@ begin
       i_packed_mode => s_packed_mode,
       i_src_a => s_src_a,
       i_src_b => s_src_b,
+      i_src_c => s_src_c,
       o_result => s_result,
       o_result_ready => s_result_ready
     );
@@ -62,6 +64,7 @@ begin
       packed_mode : T_PACKED_MODE;
       src_a : std_logic_vector(31 downto 0);
       src_b : std_logic_vector(31 downto 0);
+      src_c : std_logic_vector(31 downto 0);
 
       -- Expected outputs
       result : std_logic_vector(31 downto 0);
@@ -72,40 +75,45 @@ begin
         -- TODO(m): Add more test vectors.
 
         -- 1 x 1 = 1
-        ('1', C_MUL_MUL,    C_PACKED_NONE,      X"00000001", X"00000001", X"00000000", '0'),
-        ('1', C_MUL_MUL,    C_PACKED_NONE,      X"FFFFFFFF", X"00000001", X"00000000", '0'),
-        ('1', C_MUL_MUL,    C_PACKED_NONE,      X"00000001", X"FFFFFFFF", X"00000001", '1'),
-        ('0', C_MUL_MUL,    C_PACKED_NONE,      X"00000001", X"00000001", X"FFFFFFFF", '1'),
-        ('0', C_MUL_MUL,    C_PACKED_NONE,      X"00000001", X"00000001", X"FFFFFFFF", '1'),
+        ('1', C_MUL_MUL,    C_PACKED_NONE,      X"00000001", X"00000001", X"00000000", X"00000000", '0'),
+        ('1', C_MUL_MUL,    C_PACKED_NONE,      X"FFFFFFFF", X"00000001", X"00000000", X"00000000", '0'),
+        ('1', C_MUL_MUL,    C_PACKED_NONE,      X"00000001", X"FFFFFFFF", X"00000000", X"00000001", '1'),
+        ('0', C_MUL_MUL,    C_PACKED_NONE,      X"00000001", X"00000001", X"00000000", X"FFFFFFFF", '1'),
+        ('0', C_MUL_MUL,    C_PACKED_NONE,      X"00000001", X"00000001", X"00000000", X"FFFFFFFF", '1'),
 
         -- 99 x 99 = 9801
-        ('1', C_MUL_MUL,    C_PACKED_NONE,      X"00000063", X"00000063", X"00000000", '0'),
-        ('0', C_MUL_MUL,    C_PACKED_NONE,      X"00000063", X"00000063", X"00000000", '0'),
-        ('0', C_MUL_MUL,    C_PACKED_NONE,      X"00000063", X"00000063", X"00002649", '1'),
+        ('1', C_MUL_MUL,    C_PACKED_NONE,      X"00000063", X"00000063", X"00000000", X"00000000", '0'),
+        ('0', C_MUL_MUL,    C_PACKED_NONE,      X"00000063", X"00000063", X"00000000", X"00000000", '0'),
+        ('0', C_MUL_MUL,    C_PACKED_NONE,      X"00000063", X"00000063", X"00000000", X"00002649", '1'),
+
+        -- 99 x 99 + 123 = 9924
+        ('1', C_MUL_MADD,   C_PACKED_NONE,      X"00000063", X"00000063", X"0000007B", X"00000000", '0'),
+        ('0', C_MUL_MADD,   C_PACKED_NONE,      X"00000063", X"00000063", X"0000007B", X"00000000", '0'),
+        ('0', C_MUL_MADD,   C_PACKED_NONE,      X"00000063", X"00000063", X"0000007B", X"000026C4", '1'),
 
         -- Fixed point.
-        ('1', C_MUL_MULQ,   C_PACKED_NONE,      X"39431365", X"65432137", X"00000000", '0'),
-        ('1', C_MUL_MULQ,   C_PACKED_NONE,      X"39431365", X"E5432137", X"00000000", '0'),
-        ('1', C_MUL_MULQ,   C_PACKED_NONE,      X"7FFFFFFF", X"7FFFFFFF", X"2D4CF545", '1'),
-        ('1', C_MUL_MULQ,   C_PACKED_NONE,      X"80000000", X"80000000", X"F409E1E0", '1'),
-        ('1', C_MUL_MULQ,   C_PACKED_NONE,      X"80000000", X"80000001", X"7FFFFFFE", '1'),
-        ('0', C_MUL_MULQ,   C_PACKED_NONE,      X"00000000", X"00000000", X"7FFFFFFF", '1'),
-        ('0', C_MUL_MULQ,   C_PACKED_NONE,      X"00000000", X"00000000", X"7FFFFFFF", '1'),
+        ('1', C_MUL_MULQ,   C_PACKED_NONE,      X"39431365", X"65432137", X"00000000", X"00000000", '0'),
+        ('1', C_MUL_MULQ,   C_PACKED_NONE,      X"39431365", X"E5432137", X"00000000", X"00000000", '0'),
+        ('1', C_MUL_MULQ,   C_PACKED_NONE,      X"7FFFFFFF", X"7FFFFFFF", X"00000000", X"2D4CF545", '1'),
+        ('1', C_MUL_MULQ,   C_PACKED_NONE,      X"80000000", X"80000000", X"00000000", X"F409E1E0", '1'),
+        ('1', C_MUL_MULQ,   C_PACKED_NONE,      X"80000000", X"80000001", X"00000000", X"7FFFFFFE", '1'),
+        ('0', C_MUL_MULQ,   C_PACKED_NONE,      X"00000000", X"00000000", X"00000000", X"7FFFFFFF", '1'),
+        ('0', C_MUL_MULQ,   C_PACKED_NONE,      X"00000000", X"00000000", X"00000000", X"7FFFFFFF", '1'),
 
         -- Fixed point, rounding.
-        ('1', C_MUL_MULQR,  C_PACKED_NONE,      X"39431365", X"65432137", X"00000000", '0'),
-        ('1', C_MUL_MULQR,  C_PACKED_NONE,      X"39431365", X"E5432137", X"00000000", '0'),
-        ('1', C_MUL_MULQR,  C_PACKED_NONE,      X"7FFFFFFF", X"7FFFFFFF", X"2D4CF546", '1'),
-        ('1', C_MUL_MULQR,  C_PACKED_NONE,      X"80000000", X"80000000", X"F409E1E1", '1'),
-        ('1', C_MUL_MULQR,  C_PACKED_NONE,      X"80000000", X"80000001", X"7FFFFFFE", '1'),
-        ('0', C_MUL_MULQR,  C_PACKED_NONE,      X"00000000", X"00000000", X"7FFFFFFF", '1'),
-        ('0', C_MUL_MULQR,  C_PACKED_NONE,      X"00000000", X"00000000", X"7FFFFFFF", '1'),
+        ('1', C_MUL_MULQR,  C_PACKED_NONE,      X"39431365", X"65432137", X"00000000", X"00000000", '0'),
+        ('1', C_MUL_MULQR,  C_PACKED_NONE,      X"39431365", X"E5432137", X"00000000", X"00000000", '0'),
+        ('1', C_MUL_MULQR,  C_PACKED_NONE,      X"7FFFFFFF", X"7FFFFFFF", X"00000000", X"2D4CF546", '1'),
+        ('1', C_MUL_MULQR,  C_PACKED_NONE,      X"80000000", X"80000000", X"00000000", X"F409E1E1", '1'),
+        ('1', C_MUL_MULQR,  C_PACKED_NONE,      X"80000000", X"80000001", X"00000000", X"7FFFFFFE", '1'),
+        ('0', C_MUL_MULQR,  C_PACKED_NONE,      X"00000000", X"00000000", X"00000000", X"7FFFFFFF", '1'),
+        ('0', C_MUL_MULQR,  C_PACKED_NONE,      X"00000000", X"00000000", X"00000000", X"7FFFFFFF", '1'),
 
         -- Packed operations.
-        ('1', C_MUL_MUL,    C_PACKED_BYTE,      X"01020304", X"04050607", X"00000000", '0'),
-        ('1', C_MUL_MUL,    C_PACKED_HALF_WORD, X"01020304", X"00040005", X"00000000", '0'),
-        ('0', C_MUL_MUL,    C_PACKED_HALF_WORD, X"01020304", X"00040005", X"040A121C", '1'),
-        ('0', C_MUL_MUL,    C_PACKED_HALF_WORD, X"01020304", X"00040005", X"04080F14", '1')
+        ('1', C_MUL_MUL,    C_PACKED_BYTE,      X"01020304", X"04050607", X"00000000", X"00000000", '0'),
+        ('1', C_MUL_MUL,    C_PACKED_HALF_WORD, X"01020304", X"00040005", X"00000000", X"00000000", '0'),
+        ('0', C_MUL_MUL,    C_PACKED_HALF_WORD, X"01020304", X"00040005", X"00000000", X"040A121C", '1'),
+        ('0', C_MUL_MUL,    C_PACKED_HALF_WORD, X"01020304", X"00040005", X"00000000", X"04080F14", '1')
       );
   begin
     -- Start by resetting the signals.
@@ -116,6 +124,7 @@ begin
     s_packed_mode <= C_PACKED_NONE;
     s_src_a <= (others => '0');
     s_src_b <= (others => '0');
+    s_src_c <= (others => '0');
 
     wait for 1 ns;
     s_clk <= '1';
@@ -135,6 +144,7 @@ begin
       s_packed_mode <= patterns(i).packed_mode;
       s_src_a <= patterns(i).src_a;
       s_src_b <= patterns(i).src_b;
+      s_src_c <= patterns(i).src_c;
 
       -- Wait for the result to be produced.
       wait for 1 ns;
@@ -144,6 +154,7 @@ begin
         report "Bad result value (" & integer'image(i) & "):" & lf &
             "  a=" & to_string(s_src_a) & lf &
             "  b=" & to_string(s_src_b) & lf &
+            "  c=" & to_string(s_src_c) & lf &
             "  r=" & to_string(s_result) & " (expected " & to_string(patterns(i).result) & ")"
             severity error;
       assert s_result_ready = patterns(i).result_ready
