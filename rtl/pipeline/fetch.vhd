@@ -19,26 +19,6 @@
 
 ----------------------------------------------------------------------------------------------------
 -- Pipeline stages 1 & 2: IF1 (Program Counter) and IF2 (Instruction Fetch)
---
--- * The PC is updated as follows (highest prio first):
---   - C_RESET_PC when i_rst = '1'.
---   - Corrected PC from EX.
---   - Predicted PC from branch predictor (based on PC + 4 from the previous cycle).
---   - PC + 4 when no other information is known.
--- * Rules:
---   - Handling of i_cancel.
---     - Treat current i_wb_ack or pending memory request as invalid when i_cancel is high.
---   - Handling of i_stall.
---     - i_wb_dat needs to be latched if i_stall = '1' (latch when i_wb_ack = '1').
---     - o_bubble must be '1' as long as i_stall = '0' but no instruction can be served.
---     - Do not initiate a new memory request if i_stall is high.
---   - Handling of the WB interface (i_wb_stall & i_wb_ack in particular).
---     - The pending WB cycle must be finished before changes to the data flow (i.e. i_pccorr_*
---       and i_cancel) can be applied. Thus, i_pccorr_adjust and i_pccorr_adjusted_pc must be
---       latched until i_wb_ack has arrived (correction can be applied immediately if i_wb_stall
---       is high).
---   - Handling of i_pccorr signals.
---     - PC corrections must be latched if the IF1 stage is stalled.
 ----------------------------------------------------------------------------------------------------
 
 library ieee;
@@ -66,13 +46,11 @@ entity fetch is
     i_pccorr_adjust : in std_logic;  -- 1 if the PC correction needs to be applied.
     i_pccorr_adjusted_pc : in std_logic_vector(C_WORD_SIZE-1 downto 0);
 
-    -- Wishbone master interface.
-    o_wb_cyc : out std_logic;
-    o_wb_stb : out std_logic;
-    o_wb_adr : out std_logic_vector(C_WORD_SIZE-1 downto 2);
-    i_wb_dat : in std_logic_vector(C_WORD_SIZE-1 downto 0);
-    i_wb_ack : in std_logic;
-    i_wb_stall : in std_logic;
+    -- Instruction cache interface.
+    o_cache_rd : out std_logic;
+    o_cache_adr : out std_logic_vector(C_WORD_SIZE-1 downto 2);
+    i_cache_dat : in std_logic_vector(C_WORD_SIZE-1 downto 0);
+    i_cache_ack : in std_logic;
 
     -- To ID stage (sync).
     o_pc : out std_logic_vector(C_WORD_SIZE-1 downto 0);
@@ -82,40 +60,42 @@ entity fetch is
 end fetch;
 
 architecture rtl of fetch is
-  signal s_stall_if1 : std_logic;
+  constant C_NOP_INSTR : std_logic_vector(C_WORD_SIZE-1 downto 0) := x"00000011";
 
-  signal s_if1_active : std_logic;
-  signal s_if1_latched_pccorr_adjusted_pc : std_logic_vector(C_WORD_SIZE-1 downto 2);
-  signal s_if1_latched_pccorr_adjust : std_logic;
-  signal s_if1_latched_bp_target : std_logic_vector(C_WORD_SIZE-1 downto 2);
-  signal s_if1_latched_bp_taken : std_logic;
-  signal s_if1_bp_read_en : std_logic;
-  signal s_if1_bp_read_pc : std_logic_vector(C_WORD_SIZE-1 downto 0);
-  signal s_if1_bp_taken : std_logic;
-  signal s_if1_bp_target : std_logic_vector(C_WORD_SIZE-1 downto 0);
-  signal s_if1_next_pc : std_logic_vector(C_WORD_SIZE-1 downto 2);
-  signal s_if1_pc : std_logic_vector(C_WORD_SIZE-1 downto 2);
-  signal s_if1_next_request_is_active : std_logic;
-  signal s_if1_request_is_active : std_logic;
+  type T_IF_STATE is (
+    RESET1,
+    RESET2,
+    FETCH_INSTR
+  );
 
-  signal s_if2_latched_cancel : std_logic;
-  signal s_if2_latched_wb_dat : std_logic_vector(C_WORD_SIZE-1 downto 0);
-  signal s_if2_latched_wb_ack : std_logic;
-  signal s_if2_has_ack : std_logic;
-  signal s_if2_pending_ack : std_logic;
+  signal s_next_state : T_IF_STATE;
+  signal s_state : T_IF_STATE;
 
-  signal s_if2_next_pc : std_logic_vector(C_WORD_SIZE-1 downto 2);
-  signal s_if2_next_instr : std_logic_vector(C_WORD_SIZE-1 downto 0);
-  signal s_if2_next_bubble : std_logic;
+  signal s_bp_read_en : std_logic;
+  signal s_bp_read_pc : std_logic_vector(C_WORD_SIZE-1 downto 0);
+  signal s_bp_taken : std_logic;
+  signal s_bp_target : std_logic_vector(C_WORD_SIZE-1 downto 0);
+
+  signal s_read_pc : std_logic_vector(C_WORD_SIZE-1 downto 0);
+  signal s_read_en : std_logic;
+  signal s_prev_read_pc : std_logic_vector(C_WORD_SIZE-1 downto 0);
+
+  signal s_latched_instr : std_logic_vector(C_WORD_SIZE-1 downto 0);
+  signal s_latched_pc : std_logic_vector(C_WORD_SIZE-1 downto 0);
+  signal s_has_latched_instr : std_logic;
+
+  signal s_instr : std_logic_vector(C_WORD_SIZE-1 downto 0);
+  signal s_pc : std_logic_vector(C_WORD_SIZE-1 downto 0);
+  signal s_bubble : std_logic;
 begin
   --------------------------------------------------------------------------------------------------
-  -- Pipeline Stage 1: IF1 (Program Counter)
+  -- Branch predictor (optional).
   --------------------------------------------------------------------------------------------------
 
   BP_GEN: if CONFIG.ENABLE_BRANCH_PREDICTOR generate
     -- Instantiate the branch target buffer.
-    s_if1_bp_read_en <= not s_stall_if1;
-    s_if1_bp_read_pc <= s_if1_next_pc & "00";
+    s_bp_read_en <= s_read_en;
+    s_bp_read_pc <= s_read_pc;
     predictor_0: entity work.branch_predictor
       port map (
         -- Control signals.
@@ -125,10 +105,10 @@ begin
         i_cancel_speculation => i_cancel,
 
         -- Buffer lookup (sync).
-        i_read_pc => s_if1_bp_read_pc,
-        i_read_en => s_if1_bp_read_en,
-        o_predict_taken => s_if1_bp_taken,
-        o_predict_target => s_if1_bp_target,
+        i_read_pc => s_bp_read_pc,
+        i_read_en => s_bp_read_en,
+        o_predict_taken => s_bp_taken,
+        o_predict_target => s_bp_target,
 
         -- Buffer update (sync).
         i_write_pc => i_pccorr_source,
@@ -138,140 +118,125 @@ begin
       );
   else generate
     -- Predict nothing.
-    s_if1_bp_read_en <= '0';
-    s_if1_bp_read_pc <= (others => '0');
-    s_if1_bp_taken <= '0';
-    s_if1_bp_target <= (others => '0');
+    s_bp_taken <= '0';
+    s_bp_target <= (others => '0');
   end generate;
 
-  -- We need to latch PC corrections and BP PC predictions when IF1 is stalled,
-  -- so that they are not lost.
-  process(i_clk, i_rst)
-  begin
-    if i_rst = '1' then
-      -- We start with a forced jump to the reset PC.
-      s_if1_latched_pccorr_adjusted_pc <= CONFIG.RESET_PC(C_WORD_SIZE-1 downto 2);
-      s_if1_latched_pccorr_adjust <= '1';
-      s_if1_latched_bp_target <= (others => '0');
-      s_if1_latched_bp_taken <= '0';
-    elsif rising_edge(i_clk) then
-      -- We need to catch PC corrections and keep them as long as IF1 is stalled.
-      if i_pccorr_adjust = '1' then
-        s_if1_latched_pccorr_adjusted_pc <= i_pccorr_adjusted_pc(C_WORD_SIZE-1 downto 2);
-      end if;
-      if i_pccorr_adjust = '1' and s_stall_if1 = '1' then
-        s_if1_latched_pccorr_adjust <= '1';
-      elsif s_stall_if1 = '0' then
-        s_if1_latched_pccorr_adjust <= '0';
-      end if;
-
-      -- We need to catch BP hints and keep them as long as IF1 is stalled.
-      if s_if1_bp_taken = '1' then
-        s_if1_latched_bp_target <= s_if1_bp_target(C_WORD_SIZE-1 downto 2);
-      end if;
-      if s_if1_bp_taken = '1' and s_stall_if1 = '1' then
-        s_if1_latched_bp_taken <= '1';
-      elsif s_stall_if1 = '0' then
-        s_if1_latched_bp_taken <= '0';
-      end if;
-    end if;
-  end process;
-
-  -- Determine the next PC, based on a few different information sources:
-  s_if1_next_pc <=
-      i_pccorr_adjusted_pc(C_WORD_SIZE-1 downto 2) when i_pccorr_adjust = '1' else
-      s_if1_latched_pccorr_adjusted_pc when s_if1_latched_pccorr_adjust = '1' else
-      s_if1_pc when s_if1_request_is_active = '0' else
-      s_if1_bp_target(C_WORD_SIZE-1 downto 2) when s_if1_bp_taken = '1' else
-      s_if1_latched_bp_target when s_if1_latched_bp_taken = '1' else
-      std_logic_vector(unsigned(s_if1_pc) + to_unsigned(1, 1));
-
-  -- Should we send a memory request?
-  s_if1_next_request_is_active <= s_if1_active and not i_wb_stall;
-
-  -- Should IF1 be stalled?
-  s_stall_if1 <= i_stall or s_if2_pending_ack;
-
-  -- Signals to the IF2 stage (sync).
-  process(i_clk, i_rst)
-  begin
-    if i_rst = '1' then
-      s_if1_active <= '0';
-      s_if1_pc <= (others => '0');
-      s_if1_request_is_active <= '0';
-    elsif rising_edge(i_clk) then
-      s_if1_active <= '1';
-      if s_stall_if1 = '0' then
-        s_if1_pc <= s_if1_next_pc;
-        s_if1_request_is_active <= s_if1_next_request_is_active;
-      end if;
-    end if;
-  end process;
-
-  -- Outputs to the instruction Wishbone bus (async).
-
-  -- A cycle is almost always active. The only situation when CYC shall be low
-  -- is when we're stalled and we're no longer waiting for any more ACK:s.
-  o_wb_cyc <= s_if1_active and ((not s_if2_latched_wb_ack) or (not s_stall_if1));
-
-  -- We try to initiate a new request on every cycle that we're not stalled.
-  o_wb_stb <= s_if1_active and not s_stall_if1;
-
-  -- The read address is the predicted or corrected PC.
-  o_wb_adr <= s_if1_next_pc;
-
 
   --------------------------------------------------------------------------------------------------
-  -- Pipeline Stage 2: IF2 (Instruction Fetch)
+  -- State machine.
   --------------------------------------------------------------------------------------------------
 
-  -- We need to latch memory read results and cancel requests when i_stall = '1', so that they are
-  -- not lost.
-  process(i_clk, i_rst)
+  process(ALL)
   begin
-    if i_rst = '1' then
-      s_if2_latched_cancel <= '0';
-      s_if2_latched_wb_dat <= (others => '0');
-      s_if2_latched_wb_ack <= '0';
-    elsif rising_edge(i_clk) then
-      if i_stall = '1' then
-        if i_cancel = '1' then
-          s_if2_latched_cancel <= '1';
+    case s_state is
+      when RESET1 =>
+        s_read_pc <= CONFIG.RESET_PC;
+        s_read_en <= '0';
+        s_instr <= C_NOP_INSTR;
+        s_pc <= (others => '0');
+        s_bubble <= '1';
+        s_next_state <= RESET2;
+
+      when RESET2 =>
+        s_read_pc <= CONFIG.RESET_PC;
+        s_read_en <= '1';
+        s_instr <= C_NOP_INSTR;
+        s_pc <= (others => '0');
+        s_bubble <= '1';
+        s_next_state <= FETCH_INSTR;
+
+      when FETCH_INSTR =>
+        -- Did we get an instruction from the cache?
+        if i_cache_ack = '1' and i_cancel = '0' then
+          s_instr <= i_cache_dat;
+          s_pc <= s_prev_read_pc;
+          s_bubble <= '0';
+        elsif s_has_latched_instr = '1' and i_cancel = '0' then
+          s_instr <= s_latched_instr;
+          s_pc <= s_latched_pc;
+          s_bubble <= '0';
+        else
+          s_instr <= C_NOP_INSTR;
+          s_pc <= s_prev_read_pc;
+          s_bubble <= '1';
         end if;
-        if i_wb_ack = '1' then
-          s_if2_latched_wb_ack <= '1';
-          s_if2_latched_wb_dat <= i_wb_dat;
+
+        -- Can we make a new cache request?
+        -- Note: We start a request even under stall, given the right circumstances.
+        if i_stall = '0' or (i_cache_ack = '0' and s_has_latched_instr = '0') or (i_pccorr_adjust = '1') then
+          s_read_en <= '1';
+        else
+          s_read_en <= '0';
+        end if;
+
+        -- Update the PC.
+        if i_pccorr_adjust = '1' then
+          -- Correct the PC (we had a branch misprediction).
+          s_read_pc <= i_pccorr_adjusted_pc;
+        elsif i_cache_ack = '1' then
+          -- We got a new instruction from the cache.
+          if s_bp_taken = '1' then
+            s_read_pc <= s_bp_target;
+          else
+            s_read_pc <= std_logic_vector(unsigned(s_prev_read_pc) + 4);
+          end if;
+        else
+          -- Repeat last request if we got no ack from the cache.
+          s_read_pc <= s_prev_read_pc;
+        end if;
+
+        s_next_state <= FETCH_INSTR;
+
+      when others =>
+        s_read_pc <= (others => '0');
+        s_read_en <= '0';
+        s_instr <= C_NOP_INSTR;
+        s_pc <= (others => '0');
+        s_bubble <= '1';
+        s_next_state <= RESET2;
+    end case;
+  end process;
+
+  process(i_clk, i_rst)
+  begin
+    if i_rst = '1' then
+      s_prev_read_pc <= (others => '0');
+      s_latched_instr <= C_NOP_INSTR;
+      s_latched_pc <= (others => '0');
+      s_has_latched_instr <= '0';
+      o_instr <= C_NOP_INSTR;
+      o_pc <= (others => '0');
+      o_bubble <= '1';
+      s_state <= RESET1;
+    elsif rising_edge(i_clk) then
+      -- Pipeline stage outputs (clock synchronous).
+      if i_stall = '0' then
+        o_instr <= s_instr;
+        o_pc <= s_pc;
+        o_bubble <= s_bubble;
+      end if;
+
+      -- State update.
+      s_prev_read_pc <= s_read_pc;
+      s_state <= s_next_state;
+
+      -- Latch results from the cache if we're stalled.
+      if i_cancel = '1' then
+        s_has_latched_instr <= '0';
+      elsif i_stall = '1' then
+        if i_cache_ack = '1' then
+          s_latched_instr <= i_cache_dat;
+          s_latched_pc <= s_prev_read_pc;
+          s_has_latched_instr <= '1';
         end if;
       else
-        s_if2_latched_cancel <= '0';
-        s_if2_latched_wb_ack <= '0';
+        s_has_latched_instr <= '0';
       end if;
     end if;
   end process;
 
-  -- Do we have any data from the memory interface?
-  s_if2_has_ack <= i_wb_ack or s_if2_latched_wb_ack;
-  s_if2_pending_ack <= s_if1_request_is_active and not s_if2_has_ack;
-
-  -- Determine what to send to the ID stage.
-  s_if2_next_pc <= s_if1_pc;
-  s_if2_next_instr <= s_if2_latched_wb_dat when s_if2_latched_wb_ack = '1' else i_wb_dat;
-  s_if2_next_bubble <= i_cancel or s_if2_latched_cancel or not s_if2_has_ack;
-
-  -- Output to the ID stage (sync).
-  process(i_clk, i_rst)
-  begin
-    if i_rst = '1' then
-      o_pc <= (others => '0');
-      o_instr <= (others => '0');
-      o_bubble <= '1';
-    elsif rising_edge(i_clk) then
-      if i_stall = '0' then
-        o_pc <= s_if2_next_pc & "00";
-        o_instr <= s_if2_next_instr;
-        o_bubble <= s_if2_next_bubble;
-      end if;
-    end if;
-  end process;
-
+  -- Cache interface outputs.
+  o_cache_rd <= s_read_en;
+  o_cache_adr <= s_read_pc(C_WORD_SIZE-1 downto 2);
 end rtl;

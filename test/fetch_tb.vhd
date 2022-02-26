@@ -39,12 +39,10 @@ architecture behavioral of fetch_tb is
   signal s_pccorr_adjust : std_logic;
   signal s_pccorr_adjusted_pc : std_logic_vector(C_WORD_SIZE-1 downto 0);
 
-  signal s_wb_cyc : std_logic;
-  signal s_wb_stb : std_logic;
-  signal s_wb_adr : std_logic_vector(C_WORD_SIZE-1 downto 2);
-  signal s_wb_dat : std_logic_vector(C_WORD_SIZE-1 downto 0);
-  signal s_wb_ack : std_logic;
-  signal s_wb_stall : std_logic;
+  signal s_cache_rd : std_logic;
+  signal s_cache_adr : std_logic_vector(C_WORD_SIZE-1 downto 2);
+  signal s_cache_dat : std_logic_vector(C_WORD_SIZE-1 downto 0);
+  signal s_cache_ack : std_logic;
 
   signal s_pc : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_instr : std_logic_vector(C_WORD_SIZE-1 downto 0);
@@ -67,12 +65,10 @@ begin
       i_pccorr_adjust => s_pccorr_adjust,
       i_pccorr_adjusted_pc => s_pccorr_adjusted_pc,
 
-      o_wb_cyc => s_wb_cyc,
-      o_wb_stb => s_wb_stb,
-      o_wb_adr => s_wb_adr,
-      i_wb_dat => s_wb_dat,
-      i_wb_ack => s_wb_ack,
-      i_wb_stall => s_wb_stall,
+      o_cache_rd => s_cache_rd,
+      o_cache_adr => s_cache_adr,
+      i_cache_dat => s_cache_dat,
+      i_cache_ack => s_cache_ack,
 
       o_pc => s_pc,
       o_instr => s_instr,
@@ -93,14 +89,12 @@ begin
       pccorr_adjust : std_logic;
       pccorr_adjusted_pc : std_logic_vector(C_WORD_SIZE-1 downto 0);
 
-      wb_dat : std_logic_vector(C_WORD_SIZE-1 downto 0);
-      wb_ack : std_logic;
-      wb_stall : std_logic;
+      cache_dat : std_logic_vector(C_WORD_SIZE-1 downto 0);
+      cache_ack : std_logic;
 
       -- Expected outputs
-      wb_cyc : std_logic;
-      wb_stb : std_logic;
-      wb_adr : std_logic_vector(C_WORD_SIZE-1 downto 2);
+      cache_rd : std_logic;
+      cache_adr : std_logic_vector(C_WORD_SIZE-1 downto 2);
 
       pc : std_logic_vector(C_WORD_SIZE-1 downto 0);
       instr : std_logic_vector(C_WORD_SIZE-1 downto 0);
@@ -108,60 +102,42 @@ begin
     end record;
     type pattern_array is array (natural range <>) of pattern_type;
     constant patterns : pattern_array := (
-        -- ===[ Inputs ]============================================================   ===[ Outputs ]=======================
+        -- ===[ Inputs ]========================================================  ===[ Outputs ]=======================
 
-        -- No response from the memory (it's bysy, so WB stall).
-        ('0','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"000",'0','1', '1','1',30x"080", 32x"000",32x"000",'1'),
-        ('0','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"000",'0','1', '1','1',30x"080", 32x"000",32x"000",'1'),
-        ('0','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"000",'0','1', '1','1',30x"080", 32x"000",32x"000",'1'),
-        ('0','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"000",'0','1', '1','1',30x"080", 32x"000",32x"000",'1'),
+        -- No response from the cache (it's bysy).
+        ('0','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"000",'0', '1',30x"080", 32x"000",32x"000",'1'),
+        ('0','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"000",'0', '1',30x"080", 32x"000",32x"000",'1'),
+        ('0','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"000",'0', '1',30x"080", 32x"000",32x"000",'1'),
+        ('0','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"000",'0', '1',30x"080", 32x"000",32x"000",'1'),
 
-        -- Pipelined read burst from the memory, with one cycle WB stall.
-        ('0','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"000",'0','0', '1','1',30x"080", 32x"000",32x"000",'1'),
-        ('0','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"123",'1','0', '1','1',30x"081", 32x"000",32x"000",'1'),
-        ('0','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"456",'1','0', '1','1',30x"082", 32x"200",32x"123",'0'),
-        ('0','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"789",'1','1', '1','1',30x"083", 32x"204",32x"456",'0'),
-        ('0','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"fff",'0','0', '1','1',30x"083", 32x"208",32x"789",'0'),
-        ('0','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"abc",'1','0', '1','1',30x"084", 32x"20c",32x"789",'1'),
+        -- Pipelined read burst from the cache, with one cache miss.
+        ('0','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"000",'0', '1',30x"080", 32x"000",32x"000",'1'),
+        ('0','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"123",'1', '1',30x"081", 32x"000",32x"000",'1'),
+        ('0','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"456",'1', '1',30x"082", 32x"200",32x"123",'0'),
+        ('0','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"789",'1', '1',30x"083", 32x"204",32x"456",'0'),
+        ('0','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"000",'0', '1',30x"083", 32x"208",32x"789",'0'),
+        ('0','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"abc",'1', '1',30x"084", 32x"20c",32x"789",'1'),
+        ('0','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"000",'0', '1',30x"084", 32x"20c",32x"abc",'0'),
 
-        -- Long (multi cycle) memory request.
-        ('0','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"000",'0','0', '1','0',30x"085", 32x"20c",32x"abc",'0'),
-        ('0','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"000",'0','0', '1','0',30x"085", 32x"20c",32x"abc",'1'),
-        ('0','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"000",'0','0', '1','0',30x"085", 32x"20c",32x"abc",'1'),
-        ('0','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"def",'1','0', '1','1',30x"085", 32x"20c",32x"abc",'1'),
-        ('0','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"321",'1','0', '1','1',30x"086", 32x"210",32x"def",'0'),
+        -- Long cache request (multi cycle miss).
+        ('0','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"000",'0', '1',30x"084", 32x"20c",32x"abc",'1'),
+        ('0','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"000",'0', '1',30x"084", 32x"20c",32x"abc",'1'),
+        ('0','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"000",'0', '1',30x"084", 32x"20c",32x"abc",'1'),
+        ('0','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"def",'1', '1',30x"085", 32x"20c",32x"abc",'1'),
+        ('0','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"321",'1', '1',30x"086", 32x"210",32x"def",'0'),
 
         -- PC correction.
-        ('0','1', 32x"210",32x"204",C_BRANCH_JUMP,'1','1',32x"204", 32x"654",'1','0', '1','1',30x"081", 32x"214",32x"321",'0'),
-        ('0','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"456",'1','0', '1','1',30x"082", 32x"218",32x"654",'1'),
-        ('0','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"789",'1','0', '1','1',30x"083", 32x"204",32x"456",'0'),
-        ('0','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"abc",'1','0', '1','1',30x"084", 32x"208",32x"789",'0'),
+        ('0','1', 32x"210",32x"300",C_BRANCH_JUMP,'1','1',32x"300", 32x"654",'1', '1',30x"0c0", 32x"214",32x"321",'0'),
+        ('0','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"456",'1', '1',30x"0c1", 32x"218",32x"654",'1'),
+        ('0','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"789",'1', '1',30x"0c2", 32x"300",32x"456",'0'),
+        ('0','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"abc",'1', '1',30x"0c3", 32x"304",32x"789",'0'),
 
-        -- BTB prediction based on previous PC correction.
-        ('0','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"def",'1','0', '1','1',30x"081", 32x"20c",32x"abc",'0'),
-        ('0','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"456",'1','0', '1','1',30x"082", 32x"210",32x"def",'0'),
-
-        -- Pipeline stall, with an ack during the stall.
-        ('1','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"000",'0','0', '1','0',30x"083", 32x"204",32x"456",'0'),
-        ('1','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"789",'1','0', '1','0',30x"083", 32x"204",32x"456",'0'),
-        ('1','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"000",'0','0', '0','0',30x"083", 32x"204",32x"456",'0'),
-        ('0','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"000",'0','0', '1','1',30x"083", 32x"204",32x"456",'0'),
-        ('0','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"abc",'1','0', '1','1',30x"084", 32x"208",32x"789",'0'),
-
-        -- Pipeline stall, with:
-        --  * BTB prediction during stall.
-        --  * ACK during stall.
-        --  * PC correction during stall.
-        -- TODO(m): Do these tests independently of each other!
-        ('1','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"def",'1','0', '1','0',30x"081", 32x"20c",32x"abc",'0'),  -- BTB & ACK
-        ('1','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"000",'0','0', '0','0',30x"081", 32x"20c",32x"abc",'0'),
-        ('1','1', 32x"203",32x"214",C_BRANCH_JUMP,'1','1',32x"214", 32x"000",'0','0', '0','0',30x"085", 32x"20c",32x"abc",'0'),  -- PC corr
-        ('1','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"000",'0','0', '0','0',30x"085", 32x"20c",32x"abc",'0'),
-        ('1','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"000",'0','0', '0','0',30x"085", 32x"20c",32x"abc",'0'),
-        ('0','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"000",'0','0', '1','1',30x"085", 32x"20c",32x"abc",'0'),
-        ('0','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"fed",'1','0', '1','1',30x"086", 32x"210",32x"def",'1')
-
-        -- TODO(m): wb_stall during stall.
+        -- Stall.
+        ('1','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"123",'1', '0',30x"0c4", 32x"308",32x"abc",'0'),
+        ('1','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"000",'0', '0',30x"0c4", 32x"308",32x"abc",'0'),
+        ('0','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"000",'0', '1',30x"0c4", 32x"308",32x"abc",'0'),
+        ('0','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"456",'1', '1',30x"0c5", 32x"30c",32x"123",'0'),
+        ('0','0', 32x"000",32x"000",C_BRANCH_NONE,'0','0',32x"000", 32x"789",'1', '1',30x"0c6", 32x"310",32x"456",'0')
       );
   begin
     -- Clear all input signals.
@@ -173,9 +149,8 @@ begin
     s_pccorr_is_taken <= '0';
     s_pccorr_adjust <= '0';
     s_pccorr_adjusted_pc <= (others => '0');
-    s_wb_dat <= (others => '0');
-    s_wb_ack <= '0';
-    s_wb_stall <= '0';
+    s_cache_dat <= (others => '0');
+    s_cache_ack <= '0';
 
     -- Start by resetting the DUT (to have a defined state).
     s_rst <= '1';
@@ -183,8 +158,16 @@ begin
     wait for 1 ns;
     s_clk <= '1';
     wait for 1 ns;
-    s_clk <= '0';
     s_rst <= '0';
+
+    -- Let 2**9 cycles pass to allow for the BTB to be invalidated.
+    for i in 0 to 2**9 loop
+      s_clk <= '0';
+      wait for 1 ns;
+      s_clk <= '1';
+      wait for 1 ns;
+    end loop;
+    s_clk <= '0';
     wait for 1 ns;
 
     -- Test all the patterns in the pattern array.
@@ -202,28 +185,22 @@ begin
       s_pccorr_is_taken <= patterns(i).pccorr_is_taken;
       s_pccorr_adjust <= patterns(i).pccorr_adjust;
       s_pccorr_adjusted_pc <= patterns(i).pccorr_adjusted_pc;
-      s_wb_dat <= patterns(i).wb_dat;
-      s_wb_ack <= patterns(i).wb_ack;
-      s_wb_stall <= patterns(i).wb_stall;
+      s_cache_dat <= patterns(i).cache_dat;
+      s_cache_ack <= patterns(i).cache_ack;
 
       -- Wait for the results.
       wait for 1 ns;
 
       -- Check the outputs.
-      assert s_wb_cyc = patterns(i).wb_cyc
+      assert s_cache_rd = patterns(i).cache_rd
         report "Bad result (" & integer'image(i) & "):" & lf &
-               "  wb_cyc = " & to_string(s_wb_cyc) & lf &
-               "  expected " & to_string(patterns(i).wb_cyc)
+               "  cache_rd = " & to_string(s_cache_rd) & lf &
+               "  expected " & to_string(patterns(i).cache_rd)
             severity error;
-      assert s_wb_stb = patterns(i).wb_stb
+      assert s_cache_adr = patterns(i).cache_adr or s_cache_rd = '0'
         report "Bad result (" & integer'image(i) & "):" & lf &
-               "  wb_stb = " & to_string(s_wb_stb) & lf &
-               "  expected " & to_string(patterns(i).wb_stb)
-            severity error;
-      assert s_wb_adr = patterns(i).wb_adr or (s_wb_stb and s_wb_cyc) = '0'
-        report "Bad result (" & integer'image(i) & "):" & lf &
-               "  wb_adr = " & to_string(s_wb_adr) & lf &
-               "  expected " & to_string(patterns(i).wb_adr)
+               "  cache_adr = " & to_string(s_cache_adr) & lf &
+               "  expected " & to_string(patterns(i).cache_adr)
             severity error;
       assert s_pc = patterns(i).pc or s_bubble = '1'
         report "Bad result (" & integer'image(i) & "):" & lf &

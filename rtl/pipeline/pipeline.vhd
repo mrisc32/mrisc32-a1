@@ -36,13 +36,11 @@ entity pipeline is
     i_clk : in std_logic;
     i_rst : in std_logic;
 
-    -- Instruction memory interface (Wishbone master).
-    o_instr_cyc : out std_logic;
-    o_instr_stb : out std_logic;
+    -- Instruction cache interface.
+    o_instr_rd : out std_logic;
     o_instr_adr : out std_logic_vector(C_WORD_SIZE-1 downto 2);
     i_instr_dat : in std_logic_vector(C_WORD_SIZE-1 downto 0);
     i_instr_ack : in std_logic;
-    i_instr_stall : in std_logic;
 
     -- Data memory interface (Wishbone master).
     o_data_cyc : out std_logic;
@@ -251,13 +249,11 @@ begin
       i_pccorr_adjust => s_ex1_pccorr_adjust,
       i_pccorr_adjusted_pc => s_ex1_pccorr_adjusted_pc,
 
-      -- Wishbone master interface.
-      o_wb_cyc => o_instr_cyc,
-      o_wb_stb => o_instr_stb,
-      o_wb_adr => o_instr_adr,
-      i_wb_dat => i_instr_dat,
-      i_wb_ack => i_instr_ack,
-      i_wb_stall => i_instr_stall,
+      -- ICache interface.
+      o_cache_rd => o_instr_rd,
+      o_cache_adr => o_instr_adr,
+      i_cache_dat => i_instr_dat,
+      i_cache_ack => i_instr_ack,
 
       -- To ID stage (sync).
       o_pc => s_if_pc,

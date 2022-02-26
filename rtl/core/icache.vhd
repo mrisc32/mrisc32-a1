@@ -19,6 +19,7 @@
 
 library ieee;
 use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 use work.config.all;
 
 entity icache is
@@ -29,14 +30,13 @@ entity icache is
     -- Control signals.
     i_clk : in std_logic;
     i_rst : in std_logic;
+    i_invalidate : in std_logic;
 
-    -- Instruction interface (WB slave).
-    i_instr_cyc : in std_logic;
-    i_instr_stb : in std_logic;
+    -- Instruction fetch interface (slave).
+    i_instr_rd : in std_logic;
     i_instr_adr : in std_logic_vector(C_WORD_SIZE-1 downto 2);
     o_instr_dat : out std_logic_vector(C_WORD_SIZE-1 downto 0);
     o_instr_ack : out std_logic;
-    o_instr_stall : out std_logic;
 
     -- Memory interface (WB master).
     o_mem_cyc : out std_logic;
@@ -50,15 +50,261 @@ entity icache is
 end icache;
 
 architecture rtl of icache is
-begin
-  -- We just forward all requests to the main memory interface.
-  o_mem_cyc <= i_instr_cyc;
-  o_mem_stb <= i_instr_stb;
-  o_mem_adr <= i_instr_adr;
+  -- Cache size configuration.
+  -- TODO(m): Collect this from CONFIG.
+  -- Cache data format: [TAG, DATA]
+  -- Tag format:        [VALID (0/1), ADDR(31 downto N)]
+  constant C_CACHE_ADDR_BITS : positive := 10;
+  constant C_MAX_CACHE_ADDR : unsigned := to_unsigned((2 ** C_CACHE_ADDR_BITS) - 1, C_CACHE_ADDR_BITS);
+  constant C_TAG_SIZE : positive := 1 + C_WORD_SIZE - 2 - C_CACHE_ADDR_BITS;
+  constant C_CACHE_WIDTH : positive := C_TAG_SIZE + C_WORD_SIZE;
 
-  -- ...and send the result right back.
-  o_instr_dat <= i_mem_dat;
-  o_instr_ack <= i_mem_ack;
-  o_instr_stall <= i_mem_stall;
-  -- TODO(m): Handle i_mem_err.
+  -- State machine states.
+  type T_IC_STATE is (
+    RESET,
+    INVALIDATE,
+    READY,
+    WAIT_FOR_MEM
+  );
+
+  signal s_state : T_IC_STATE;
+  signal s_next_state : T_IC_STATE;
+
+  signal s_write_addr : std_logic_vector(C_CACHE_ADDR_BITS-1 downto 0);
+  signal s_write_data : std_logic_vector(C_CACHE_WIDTH-1 downto 0);
+  signal s_write_en : std_logic;
+
+  signal s_read_addr : std_logic_vector(C_CACHE_ADDR_BITS-1 downto 0);
+  signal s_read_data : std_logic_vector(C_CACHE_WIDTH-1 downto 0);
+
+  signal s_lookup_en : std_logic;
+  signal s_lookup_adr : std_logic_vector(C_WORD_SIZE-1 downto 2);
+  signal s_cache_miss : std_logic;
+
+  signal s_mem_stb : std_logic;
+  signal s_mem_adr : std_logic_vector(C_WORD_SIZE-1 downto 2);
+  signal s_last_mem_adr : std_logic_vector(C_WORD_SIZE-1 downto 2);
+  signal s_retry_stb : std_logic;
+
+  signal s_invalidate_addr : unsigned(C_CACHE_ADDR_BITS-1 downto 0);
+  signal s_next_invalidate_addr : unsigned(C_CACHE_ADDR_BITS-1 downto 0);
+
+  function addr2cache_addr(addr : std_logic_vector) return std_logic_vector is
+  begin
+    return addr(C_CACHE_ADDR_BITS+2-1 downto 2);
+  end function;
+
+  function addr2tag(addr : std_logic_vector) return std_logic_vector is
+  begin
+    return "1" & addr(C_WORD_SIZE-1 downto C_CACHE_ADDR_BITS+2);
+  end function;
+
+  function make_cache_dat(addr : std_logic_vector; data : std_logic_vector) return std_logic_vector is
+  begin
+    return addr2tag(addr) & data;
+  end function;
+
+  function cache_dat2tag(cache_dat : std_logic_vector) return std_logic_vector is
+    variable v_tag : std_logic_vector(C_TAG_SIZE-1 downto 0);
+  begin
+    v_tag := cache_dat(C_CACHE_WIDTH-1 downto C_WORD_SIZE);
+    return v_tag;
+  end function;
+
+  function cache_dat2data(cache_dat : std_logic_vector) return std_logic_vector is
+  begin
+    return cache_dat(C_WORD_SIZE-1 downto 0);
+  end function;
+
+  function tag_cache_addr2addr(tag : std_logic_vector; cache_addr : std_logic_vector) return std_logic_vector is
+  begin
+    return tag(C_TAG_SIZE-2 downto 0) & cache_addr;
+  end function;
+
+  function tag_is_valid(tag : std_logic_vector) return boolean is
+  begin
+    return tag(C_TAG_SIZE-1) = '1';
+  end function;
+begin
+  -----------------------------------------------------------------------------
+  -- Cache RAM.
+  -----------------------------------------------------------------------------
+
+  -- TODO(m): Use a separate tag RAM and use cache lines of 4-8 words each (it
+  -- should save BRAM).
+  cache_ram_1: entity work.ram_dual_port
+    generic map (
+      WIDTH => C_CACHE_WIDTH,
+      ADDR_BITS => C_CACHE_ADDR_BITS,
+      PREFER_DISTRIBUTED => false
+    )
+    port map (
+      i_clk => i_clk,
+      i_write_data => s_write_data,
+      i_write_addr => s_write_addr,
+      i_we => s_write_en,
+      i_read_addr => s_read_addr,
+      o_read_data => s_read_data
+    );
+
+  -----------------------------------------------------------------------------
+  -- Cache lookup.
+  --
+  -- TODO(m): Document me!
+  -----------------------------------------------------------------------------
+
+  -- The lower bits of the address are used for addressing the cache.
+  s_read_addr <= i_instr_adr(C_CACHE_ADDR_BITS+2-1 downto 2);
+
+  process(i_clk, i_rst)
+  begin
+    if i_rst = '1' then
+      s_lookup_en <= '0';
+      s_lookup_adr <= (others => '0');
+    elsif rising_edge(i_clk) then
+      -- Are we ready to do a new lookup?
+      if s_state = READY or (s_state = WAIT_FOR_MEM and i_mem_ack = '1') then
+        s_lookup_en <= i_instr_rd;
+        if i_instr_rd = '1' then
+          s_lookup_adr <= i_instr_adr;
+        end if;
+      else
+        s_lookup_en <= '0';
+      end if;
+    end if;
+  end process;
+
+  process(ALL)
+    variable v_write_tag : std_logic_vector(C_TAG_SIZE-1 downto 0);
+  begin
+    -- Cache hit?
+    v_write_tag := cache_dat2tag(s_write_data);
+    if s_lookup_en = '1' and
+       s_write_en = '1' and
+       tag_is_valid(v_write_tag) and
+       tag_cache_addr2addr(v_write_tag, s_write_addr) = s_lookup_adr then
+      -- Bypass result from memory read.
+      s_cache_miss <= '0';
+      o_instr_ack <= '1';
+      o_instr_dat <= cache_dat2data(s_write_data);
+    elsif s_lookup_en = '1' and cache_dat2tag(s_read_data) = addr2tag(s_lookup_adr) then
+      -- Cache hit.
+      s_cache_miss <= '0';
+      o_instr_ack <= '1';
+      o_instr_dat <= cache_dat2data(s_read_data);
+    else
+      -- Miss (or no lookup requested).
+      s_cache_miss <= s_lookup_en;
+      o_instr_ack <= '0';
+      o_instr_dat <= (others => '0');
+    end if;
+  end process;
+
+  -----------------------------------------------------------------------------
+  -- Cache miss handling.
+  --
+  -- TODO(m): Document me!
+  -----------------------------------------------------------------------------
+
+  process(ALL)
+  begin
+    case s_state is
+      when RESET =>
+        s_next_invalidate_addr <= (others => '0');
+        s_write_addr <= (others => '0');
+        s_write_data <= (others => '0');
+        s_write_en <= '0';
+        o_mem_cyc <= '0';
+        s_mem_stb <= '0';
+        s_mem_adr <= (others => '0');
+        s_next_state <= INVALIDATE;
+
+      when INVALIDATE =>
+        s_next_invalidate_addr <= s_invalidate_addr + 1;
+        s_write_addr <= std_logic_vector(s_invalidate_addr);
+        s_write_data <= (others => '0');  -- VALID = 0
+        s_write_en <= '1';
+        o_mem_cyc <= '0';
+        s_mem_stb <= '0';
+        s_mem_adr <= (others => '0');
+
+        if s_invalidate_addr = C_MAX_CACHE_ADDR then
+          s_next_state <= READY;
+        else
+          s_next_state <= INVALIDATE;
+        end if;
+
+      when READY =>
+        -- TODO(m): Handle i_invalidate.
+        s_next_invalidate_addr <= (others => '0');
+        s_write_addr <= std_logic_vector(s_invalidate_addr);
+        s_write_data <= (others => '0');
+        s_write_en <= '0';
+        s_mem_adr <= s_lookup_adr;
+
+        if s_cache_miss = '1' then
+          o_mem_cyc <= '1';
+          s_mem_stb <= '1';
+          s_next_state <= WAIT_FOR_MEM;
+        else
+          o_mem_cyc <= '0';
+          s_mem_stb <= '0';
+          s_next_state <= READY;
+        end if;
+
+      when WAIT_FOR_MEM =>
+        -- TODO(m): Handle i_mem_err.
+        -- TODO(m): Handle i_invalidate.
+        s_next_invalidate_addr <= (others => '0');
+        s_write_addr <= addr2cache_addr(s_last_mem_adr);
+        s_write_data <= make_cache_dat(s_last_mem_adr, i_mem_dat);
+        s_write_en <= i_mem_ack;
+        o_mem_cyc <= '1';
+        s_mem_adr <= s_lookup_adr;
+
+        if i_mem_ack = '1' then
+          -- Return to WAIT_FOR_MEM if we got a new miss.
+          if s_cache_miss = '1' then
+            s_mem_stb <= '1';
+            s_next_state <= WAIT_FOR_MEM;
+          else
+            s_mem_stb <= '0';
+            s_next_state <= READY;
+          end if;
+        else
+          s_mem_stb <= s_retry_stb;
+          s_next_state <= WAIT_FOR_MEM;
+        end if;
+
+      when others =>
+        s_next_invalidate_addr <= (others => '0');
+        s_write_addr <= (others => '0');
+        s_write_data <= (others => '0');
+        s_write_en <= '0';
+        o_mem_cyc <= '0';
+        s_mem_stb <= '0';
+        s_mem_adr <= (others => '0');
+        s_next_state <= RESET;
+    end case;
+  end process;
+
+  o_mem_stb <= s_mem_stb;
+  o_mem_adr <= s_mem_adr;
+
+  process(i_clk, i_rst)
+  begin
+    if i_rst = '1' then
+      s_invalidate_addr <= (others => '0');
+      s_state <= RESET;
+      s_last_mem_adr <= (others => '0');
+      s_retry_stb <= '0';
+    elsif rising_edge(i_clk) then
+      s_invalidate_addr <= s_next_invalidate_addr;
+      s_state <= s_next_state;
+      if s_mem_stb = '1' then
+        s_last_mem_adr <= s_mem_adr;
+      end if;
+      s_retry_stb <= s_mem_stb and i_mem_stall;
+    end if;
+  end process;
 end rtl;

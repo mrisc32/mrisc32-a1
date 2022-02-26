@@ -66,12 +66,10 @@ end core;
 
 architecture rtl of core is
   -- Pipeline instruction bus master signals.
-  signal s_instr_cyc : std_logic;
-  signal s_instr_stb : std_logic;
+  signal s_instr_rd : std_logic;
   signal s_instr_adr : std_logic_vector(C_WORD_SIZE-1 downto 2);
   signal s_instr_dat : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_instr_ack : std_logic;
-  signal s_instr_stall : std_logic;
 
   -- Pipeline data bus master signals.
   signal s_data_cyc : std_logic;
@@ -98,12 +96,10 @@ begin
       i_rst => i_rst,
 
       -- Instruction interface.
-      o_instr_cyc => s_instr_cyc,
-      o_instr_stb => s_instr_stb,
+      o_instr_rd => s_instr_rd,
       o_instr_adr => s_instr_adr,
       i_instr_dat => s_instr_dat,
       i_instr_ack => s_instr_ack,
-      i_instr_stall => s_instr_stall,
 
       -- Data interface.
       o_data_cyc => s_data_cyc,
@@ -134,14 +130,13 @@ begin
     port map (
       i_clk => i_clk,
       i_rst => i_rst,
+      i_invalidate => '0',  -- TODO(m): Implement me!
 
       -- From instruction fetch.
-      i_instr_cyc => s_instr_cyc,
-      i_instr_stb => s_instr_stb,
+      i_instr_rd => s_instr_rd,
       i_instr_adr => s_instr_adr,
       o_instr_dat => s_instr_dat,
       o_instr_ack => s_instr_ack,
-      o_instr_stall => s_instr_stall,
 
       -- To external memory.
       o_mem_cyc => o_imem_cyc,
