@@ -21,9 +21,14 @@
 TEST_PROGRAMS_PATH = test/programs
 
 EXTRA += \
-    $(WORKDIR)/branches.bin
+    $(WORKDIR)/branches.bin \
+    $(WORKDIR)/simple.bin
 
 $(WORKDIR)/branches.bin: $(TEST_PROGRAMS_PATH)/branches.s
-	mrisc32-elf-gcc -mno-crt0 $< -o $(WORKDIR)/branches.elf
+	mrisc32-elf-gcc -mno-crt0 -mno-ctor-dtor $< -o $(WORKDIR)/branches.elf
 	mrisc32-elf-objcopy -O binary $(WORKDIR)/branches.elf $@
+
+$(WORKDIR)/simple.bin: $(TEST_PROGRAMS_PATH)/simple.s
+	mrisc32-elf-gcc -mno-crt0 -mno-ctor-dtor $< -o $(WORKDIR)/simple.elf
+	mrisc32-elf-objcopy -O binary $(WORKDIR)/simple.elf $@
 
