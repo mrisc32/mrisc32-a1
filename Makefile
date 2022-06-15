@@ -30,7 +30,7 @@ GHDLWARNINGS = \
     -Wspecs \
     -Wunused \
     -Werror
-GHDLFLAGS = --std=08 --work=work --workdir=$(WORKDIR) $(GHDLWARNINGS)
+GHDLFLAGS = --std=08 -g --work=work --workdir=$(WORKDIR) $(GHDLWARNINGS)
 
 .PHONY: all clean
 

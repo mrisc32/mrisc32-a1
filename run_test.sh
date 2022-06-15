@@ -23,23 +23,29 @@ WORKDIR=out
 GHDL=ghdl
 GHDLFLAGS="--std=08 --work=work --workdir=${WORKDIR}"
 
-if [ "$1" = "--vcd" ]; then
-  VCD=yes
-  shift
-fi
-if [ "$1" = "--wave" ]; then
-  WAVE=yes
-  shift
-fi
+for i in {0..5}; do
+  if [ "$1" = "--vcd" ]; then
+    VCD=yes
+    shift
+  fi
+  if [ "$1" = "--wave" ]; then
+    WAVE=yes
+    shift
+  fi
+  if [ "$1" = "--assert" ]; then
+    GHDLRUNFLAGS="${GHDLRUNFLAGS} --assert-level=warning --backtrace-severity=warning"
+    shift
+  fi
+done
 
 for i in $*; do
   echo "** TEST: $i"
   if [ "x${VCD}" = "xyes" ]; then
-    ${GHDL} -r ${GHDLFLAGS} "$i" "--vcd=${WORKDIR}/$i.vcd"
+    ${GHDL} -r ${GHDLFLAGS} "$i" "--vcd=${WORKDIR}/$i.vcd" ${GHDLRUNFLAGS}
   elif [ "x${WAVE}" = "xyes" ]; then
-    ${GHDL} -r ${GHDLFLAGS} "$i" "--wave=${WORKDIR}/$i.ghw"
+    ${GHDL} -r ${GHDLFLAGS} "$i" "--wave=${WORKDIR}/$i.ghw" ${GHDLRUNFLAGS}
   else
-    ${GHDL} -r ${GHDLFLAGS} "$i"
+    ${GHDL} -r ${GHDLFLAGS} "$i" ${GHDLRUNFLAGS}
   fi
   echo ""
 done

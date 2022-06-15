@@ -23,23 +23,29 @@ WORKDIR=out
 GHDL=ghdl
 GHDLFLAGS="--std=08 --work=work --workdir=${WORKDIR}"
 
-if [ "$1" = "--vcd" ]; then
-  VCD=yes
-  shift
-fi
-if [ "$1" = "--wave" ]; then
-  WAVE=yes
-  shift
-fi
+for i in {0..5}; do
+  if [ "$1" = "--vcd" ]; then
+    VCD=yes
+    shift
+  fi
+  if [ "$1" = "--wave" ]; then
+    WAVE=yes
+    shift
+  fi
+  if [ "$1" = "--assert" ]; then
+    GHDLRUNFLAGS="${GHDLRUNFLAGS} --assert-level=warning --backtrace-severity=warning"
+    shift
+  fi
+done
 
 # Copy the compiled program so that the VHDL test bench can find it.
 cp "$1" out/core_tb_prg.bin
 
 # Run the core_tb test bench.
 if [ "x${VCD}" = "xyes" ]; then
-  ${GHDL} -r ${GHDLFLAGS} core_tb "--vcd=${WORKDIR}/core_tb.vcd"
+  ${GHDL} -r ${GHDLFLAGS} core_tb "--vcd=${WORKDIR}/core_tb.vcd" ${GHDLRUNFLAGS}
 elif [ "x${WAVE}" = "xyes" ]; then
-  ${GHDL} -r ${GHDLFLAGS} core_tb "--wave=${WORKDIR}/core_tb.ghw"
+  ${GHDL} -r ${GHDLFLAGS} core_tb "--wave=${WORKDIR}/core_tb.ghw" ${GHDLRUNFLAGS}
 else
-  ${GHDL} -r ${GHDLFLAGS} core_tb
+  ${GHDL} -r ${GHDLFLAGS} core_tb ${GHDLRUNFLAGS}
 fi
