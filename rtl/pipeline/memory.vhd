@@ -60,6 +60,9 @@ entity memory is
 end memory;
 
 architecture rtl of memory is
+  signal s_new_request : std_logic;
+  signal s_next_repeat_request : std_logic;
+
   signal s_stall_m1 : std_logic;
 
   signal s_mem_byte_mask_unshifted : std_logic_vector(C_WORD_SIZE/8-1 downto 0);
@@ -117,26 +120,30 @@ begin
   -- Is this a write opration?
   s_mem_we <= i_mem_op(3);
 
+  -- Initialize a new request?
+  s_new_request <= i_mem_enable and (s_repeat_request or not (i_stall or s_m2_pending_ack));
+
   -- Outputs to the Wishbone interface (async).
   o_wb_cyc <= (i_mem_enable or s_m1_enable) and ((not i_stall) or s_m2_pending_ack or i_wb_ack);
-  o_wb_stb <= i_mem_enable and (s_repeat_request or not (i_stall or s_m2_pending_ack));
+  o_wb_stb <= s_new_request;
   o_wb_adr <= i_mem_adr(C_WORD_SIZE-1 downto 2);
   o_wb_we <= s_mem_we;
   o_wb_sel <= s_mem_byte_mask;
   o_wb_dat <= s_mem_store_data;
 
-  -- Should M1 be stalled?
-  s_stall_m1 <= i_stall or s_m2_pending_ack or i_wb_stall;
-
   -- Did we get a stall (i.e. repeat) request from the Wishbone interface?
+  s_next_repeat_request <= s_new_request and i_wb_stall;
   process(i_clk, i_rst)
   begin
     if i_rst = '1' then
       s_repeat_request <= '0';
     elsif rising_edge(i_clk) then
-      s_repeat_request <= i_wb_stall;
+      s_repeat_request <= s_next_repeat_request;
     end if;
   end process;
+
+  -- Should M1 be stalled?
+  s_stall_m1 <= i_stall or s_m2_pending_ack or s_next_repeat_request;
 
   -- Signals from the M1 stage to the M2 stage (sync).
   process(i_clk, i_rst)
@@ -230,6 +237,6 @@ begin
   -- Do we need to stall the pipeline (async)?
   -- Note: We do not want to send out a stall request if we're being stalled by
   -- an external request.
-  o_stall <= (s_m2_pending_ack or i_wb_stall) and not i_stall;
+  o_stall <= (s_m2_pending_ack or s_next_repeat_request) and not i_stall;
 end rtl;
 
