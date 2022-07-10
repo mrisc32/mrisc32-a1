@@ -163,7 +163,7 @@ begin
       s_lookup_adr <= (others => '0');
     elsif rising_edge(i_clk) then
       -- Are we ready to do a new lookup?
-      if s_state = READY or (s_state = WAIT_FOR_MEM and i_mem_ack = '1') then
+      if s_state = READY or s_state = WAIT_FOR_MEM then
         s_lookup_en <= i_instr_rd;
         if i_instr_rd = '1' then
           s_lookup_adr <= i_instr_adr;
