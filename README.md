@@ -47,14 +47,16 @@ The CPU is nearing completion but still under development. The following compone
   - Each vector register has 16 elements (configurable).
 * An address generation unit (AGU).
   - The AGU supports all addressing modes.
-* A single 32-bit Wishbone (B4 pipelined) interface to the memory.
-  - Instruction and data requests are arbitrated (data has precedence).
-  - One memory request can be completed every cycle.
 * Branch prediction and correction.
-  - A simple 1-bit dynamic branch predictor.
+  - A direct mapped 2-bit dynamic branch predictor (512 entries, configurable).
+  - A return address stack predictor (16 entries, configurable).
   - The branch misprediction penalty is 3 cycles (a correctly predicted branch incurs no penalty).
+* A direct mapped instruction cache.
+* Two 32-bit Wishbone (B4 pipelined) interfaces to the memory.
+  - Instruction and data requests have separate Wishbone interfaces.
+  - One memory request can be completed every cycle per interface.
 
-**TODO**: Caches, interrupt logic.
+**TODO**: Data cache, interrupt logic.
 
 ## Configurability
 
