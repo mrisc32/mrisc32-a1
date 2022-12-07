@@ -65,7 +65,6 @@ architecture rtl of memory is
 
   signal s_stall_m1 : std_logic;
 
-  signal s_mem_byte_mask_unshifted : std_logic_vector(C_WORD_SIZE/8-1 downto 0);
   signal s_mem_byte_mask : std_logic_vector(C_WORD_SIZE/8-1 downto 0);
   signal s_mem_store_data : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_mem_we : std_logic;
@@ -96,18 +95,16 @@ begin
   ------------------------------------------------------------------------------
 
   -- Prepare the byte mask.
-  ByteMaskMux: with i_mem_op(1 downto 0) select
-    s_mem_byte_mask_unshifted <=
-      "0001" when "01",    -- byte
-      "0011" when "10",    -- halfword
-      "1111" when others;  -- word (11) and undefined (00)
-
-  ByteMaskShiftMux: with i_mem_adr(1 downto 0) select
+  ByteMaskMux: with i_mem_op(1 downto 0) & i_mem_adr(1 downto 0) select
     s_mem_byte_mask <=
-      s_mem_byte_mask_unshifted(3 downto 0)         when "00",
-      s_mem_byte_mask_unshifted(2 downto 0) & "0"   when "01",
-      s_mem_byte_mask_unshifted(1 downto 0) & "00"  when "10",
-      s_mem_byte_mask_unshifted(0 downto 0) & "000" when others;  -- "11"
+      "0001"         when "0100",  -- Size = byte, Shift = 0
+      "0010"         when "0101",  -- Size = byte, Shift = 1
+      "0100"         when "0110",  -- Size = byte, Shift = 2
+      "1000"         when "0111",  -- Size = byte, Shift = 3
+      "0011"         when "1000",  -- Size = halfword, Shift = 0
+      "1100"         when "1010",  -- Size = halfword, Shift = 2
+      "1111"         when "1100",  -- Size = word, Shift = 0
+      "----"         when others;  -- Undefined
 
   -- Prepare the data to store (shift it into position).
   StoreDataShiftMux: with i_mem_adr(1 downto 0) select
