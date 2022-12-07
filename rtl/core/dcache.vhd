@@ -58,6 +58,28 @@ end dcache;
 
 architecture rtl of dcache is
 begin
+  -- TODO(m): Make a simpler memory interface to the core pipeline, and implement the Wishbone
+  -- controller here (similar to how the icache works).
+
+  -- TODO(m): Implement a Store Buffer.
+  --   "A store buffer is a hardware structure closer to the memory hierarchy and "buffers" up the
+  --    write traffic (stores) from the processor so that the Write-back stage of the processor is
+  --    complete as soon as possible."
+  --   "A store buffer is a mechanism that exists in many current processors to accomplish one or
+  --    more of the following: store access ordering, latency hiding and data forwarding."
+  --
+  -- The store buffer would be a small FIFO queue:
+  --   - Write requests from the core are written to the FIFO queue, if:
+  --     a) A memory read/write request is ongoing, or...
+  --     b) ...the FIFO is not empty (covered by a)?).
+  --   - ...otherwise the request is forwarded directly to the memory.
+  --   - When the FIFO is not empty, write requests are sent to memory from the FIFO queue.
+  --   - When the FIFO is full, write requests from the CPU are stalled, otherwise write requests
+  --     are ACK:ed immediately.
+  --   - Read requests must be stalled until the write queue is empty.
+  --   - ...unless the read request can be satisified by write entries in the queue (or the
+  --     currently ongoing write request to the memory).
+
   -- We just forward all requests to the main memory interface.
   o_mem_cyc <= i_data_cyc;
   o_mem_stb <= i_data_stb;
