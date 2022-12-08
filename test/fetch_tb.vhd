@@ -39,7 +39,7 @@ architecture behavioral of fetch_tb is
   signal s_pccorr_adjust : std_logic;
   signal s_pccorr_adjusted_pc : std_logic_vector(C_WORD_SIZE-1 downto 0);
 
-  signal s_cache_rd : std_logic;
+  signal s_cache_req : std_logic;
   signal s_cache_adr : std_logic_vector(C_WORD_SIZE-1 downto 2);
   signal s_cache_dat : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_cache_ack : std_logic;
@@ -65,7 +65,7 @@ begin
       i_pccorr_adjust => s_pccorr_adjust,
       i_pccorr_adjusted_pc => s_pccorr_adjusted_pc,
 
-      o_cache_rd => s_cache_rd,
+      o_cache_req => s_cache_req,
       o_cache_adr => s_cache_adr,
       i_cache_dat => s_cache_dat,
       i_cache_ack => s_cache_ack,
@@ -93,7 +93,7 @@ begin
       cache_ack : std_logic;
 
       -- Expected outputs
-      cache_rd : std_logic;
+      cache_req : std_logic;
       cache_adr : std_logic_vector(C_WORD_SIZE-1 downto 2);
 
       pc : std_logic_vector(C_WORD_SIZE-1 downto 0);
@@ -192,12 +192,12 @@ begin
       wait for 1 ns;
 
       -- Check the outputs.
-      assert s_cache_rd = patterns(i).cache_rd
+      assert s_cache_req = patterns(i).cache_req
         report "Bad result (" & integer'image(i) & "):" & lf &
-               "  cache_rd = " & to_string(s_cache_rd) & lf &
-               "  expected " & to_string(patterns(i).cache_rd)
+               "  cache_req = " & to_string(s_cache_req) & lf &
+               "  expected " & to_string(patterns(i).cache_req)
             severity error;
-      assert s_cache_adr = patterns(i).cache_adr or s_cache_rd = '0'
+      assert s_cache_adr = patterns(i).cache_adr or s_cache_req = '0'
         report "Bad result (" & integer'image(i) & "):" & lf &
                "  cache_adr = " & to_string(s_cache_adr) & lf &
                "  expected " & to_string(patterns(i).cache_adr)

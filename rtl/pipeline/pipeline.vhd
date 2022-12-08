@@ -37,7 +37,7 @@ entity pipeline is
     i_rst : in std_logic;
 
     -- Instruction cache interface.
-    o_instr_rd : out std_logic;
+    o_instr_req : out std_logic;
     o_instr_adr : out std_logic_vector(C_WORD_SIZE-1 downto 2);
     i_instr_dat : in std_logic_vector(C_WORD_SIZE-1 downto 0);
     i_instr_ack : in std_logic;
@@ -250,7 +250,7 @@ begin
       i_pccorr_adjusted_pc => s_ex1_pccorr_adjusted_pc,
 
       -- ICache interface.
-      o_cache_rd => o_instr_rd,
+      o_cache_req => o_instr_req,
       o_cache_adr => o_instr_adr,
       i_cache_dat => i_instr_dat,
       i_cache_ack => i_instr_ack,

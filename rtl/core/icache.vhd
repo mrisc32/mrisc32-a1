@@ -33,7 +33,7 @@ entity icache is
     i_invalidate : in std_logic;
 
     -- Instruction fetch interface (slave).
-    i_instr_rd : in std_logic;
+    i_instr_req : in std_logic;
     i_instr_adr : in std_logic_vector(C_WORD_SIZE-1 downto 2);
     o_instr_dat : out std_logic_vector(C_WORD_SIZE-1 downto 0);
     o_instr_ack : out std_logic;
@@ -164,8 +164,8 @@ begin
     elsif rising_edge(i_clk) then
       -- Are we ready to do a new lookup?
       if s_state = READY or s_state = WAIT_FOR_MEM then
-        s_lookup_en <= i_instr_rd;
-        if i_instr_rd = '1' then
+        s_lookup_en <= i_instr_req;
+        if i_instr_req = '1' then
           s_lookup_adr <= i_instr_adr;
         end if;
       else

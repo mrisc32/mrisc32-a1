@@ -66,7 +66,7 @@ end core;
 
 architecture rtl of core is
   -- Pipeline instruction bus master signals.
-  signal s_instr_rd : std_logic;
+  signal s_instr_req : std_logic;
   signal s_instr_adr : std_logic_vector(C_WORD_SIZE-1 downto 2);
   signal s_instr_dat : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_instr_ack : std_logic;
@@ -96,7 +96,7 @@ begin
       i_rst => i_rst,
 
       -- Instruction interface.
-      o_instr_rd => s_instr_rd,
+      o_instr_req => s_instr_req,
       o_instr_adr => s_instr_adr,
       i_instr_dat => s_instr_dat,
       i_instr_ack => s_instr_ack,
@@ -133,7 +133,7 @@ begin
       i_invalidate => '0',  -- TODO(m): Implement me!
 
       -- From instruction fetch.
-      i_instr_rd => s_instr_rd,
+      i_instr_req => s_instr_req,
       i_instr_adr => s_instr_adr,
       o_instr_dat => s_instr_dat,
       o_instr_ack => s_instr_ack,

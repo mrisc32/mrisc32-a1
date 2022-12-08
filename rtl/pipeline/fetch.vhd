@@ -47,7 +47,7 @@ entity fetch is
     i_pccorr_adjusted_pc : in std_logic_vector(C_WORD_SIZE-1 downto 0);
 
     -- Instruction cache interface.
-    o_cache_rd : out std_logic;
+    o_cache_req : out std_logic;
     o_cache_adr : out std_logic_vector(C_WORD_SIZE-1 downto 2);
     i_cache_dat : in std_logic_vector(C_WORD_SIZE-1 downto 0);
     i_cache_ack : in std_logic;
@@ -237,6 +237,6 @@ begin
   end process;
 
   -- Cache interface outputs.
-  o_cache_rd <= s_read_en;
+  o_cache_req <= s_read_en;
   o_cache_adr <= s_read_pc(C_WORD_SIZE-1 downto 2);
 end rtl;
