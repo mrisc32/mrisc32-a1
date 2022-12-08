@@ -41,17 +41,17 @@ entity memory is
     i_mem_adr : in std_logic_vector(C_WORD_SIZE-1 downto 0);
     i_mem_dat : in std_logic_vector(C_WORD_SIZE-1 downto 0);
 
-    -- Wishbone master interface.
-    o_wb_cyc : out std_logic;
-    o_wb_stb : out std_logic;
-    o_wb_adr : out std_logic_vector(C_WORD_SIZE-1 downto 2);
-    o_wb_we : out std_logic;   -- 1 = write, 0 = read
-    o_wb_sel : out std_logic_vector(C_WORD_SIZE/8-1 downto 0);
-    o_wb_dat : out std_logic_vector(C_WORD_SIZE-1 downto 0);
-    i_wb_dat : in std_logic_vector(C_WORD_SIZE-1 downto 0);
-    i_wb_ack : in std_logic;
-    i_wb_stall : in std_logic;
-    i_wb_err : in std_logic;
+    -- Data cache master interface.
+    o_cache_cyc : out std_logic;
+    o_cache_stb : out std_logic;
+    o_cache_adr : out std_logic_vector(C_WORD_SIZE-1 downto 2);
+    o_cache_we : out std_logic;   -- 1 = write, 0 = read
+    o_cache_sel : out std_logic_vector(C_WORD_SIZE/8-1 downto 0);
+    o_cache_dat : out std_logic_vector(C_WORD_SIZE-1 downto 0);
+    i_cache_dat : in std_logic_vector(C_WORD_SIZE-1 downto 0);
+    i_cache_ack : in std_logic;
+    i_cache_stall : in std_logic;
+    i_cache_err : in std_logic;
 
     -- Outputs (async).
     o_result : out std_logic_vector(C_WORD_SIZE-1 downto 0);
@@ -84,10 +84,10 @@ architecture rtl of memory is
   signal s_m1_mem_op : T_MEM_OP;
   signal s_m1_shift : std_logic_vector(1 downto 0);
 
-  signal s_m2_latched_wb_ack : std_logic;
-  signal s_m2_latched_wb_dat : std_logic_vector(C_WORD_SIZE-1 downto 0);
-  signal s_m2_wb_ack : std_logic;
-  signal s_m2_wb_dat : std_logic_vector(C_WORD_SIZE-1 downto 0);
+  signal s_m2_latched_cache_ack : std_logic;
+  signal s_m2_latched_cache_dat : std_logic_vector(C_WORD_SIZE-1 downto 0);
+  signal s_m2_cache_ack : std_logic;
+  signal s_m2_cache_dat : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_m2_pending_ack : std_logic;
 begin
   ------------------------------------------------------------------------------
@@ -120,16 +120,16 @@ begin
   -- Initialize a new request?
   s_new_request <= i_mem_enable and (s_repeat_request or not (i_stall or s_m2_pending_ack));
 
-  -- Outputs to the Wishbone interface (async).
-  o_wb_cyc <= (i_mem_enable or s_m1_enable) and ((not i_stall) or s_m2_pending_ack or i_wb_ack);
-  o_wb_stb <= s_new_request;
-  o_wb_adr <= i_mem_adr(C_WORD_SIZE-1 downto 2);
-  o_wb_we <= s_mem_we;
-  o_wb_sel <= s_mem_byte_mask;
-  o_wb_dat <= s_mem_store_data;
+  -- Outputs to the cache interface (async).
+  o_cache_cyc <= (i_mem_enable or s_m1_enable) and ((not i_stall) or s_m2_pending_ack or i_cache_ack);
+  o_cache_stb <= s_new_request;
+  o_cache_adr <= i_mem_adr(C_WORD_SIZE-1 downto 2);
+  o_cache_we <= s_mem_we;
+  o_cache_sel <= s_mem_byte_mask;
+  o_cache_dat <= s_mem_store_data;
 
-  -- Did we get a stall (i.e. repeat) request from the Wishbone interface?
-  s_next_repeat_request <= s_new_request and i_wb_stall;
+  -- Did we get a stall (i.e. repeat) request from the cache?
+  s_next_repeat_request <= s_new_request and i_cache_stall;
   process(i_clk, i_rst)
   begin
     if i_rst = '1' then
@@ -171,24 +171,24 @@ begin
   process(i_clk, i_rst)
   begin
     if i_rst = '1' then
-      s_m2_latched_wb_dat <= (others => '0');
-      s_m2_latched_wb_ack <= '0';
+      s_m2_latched_cache_dat <= (others => '0');
+      s_m2_latched_cache_ack <= '0';
     elsif rising_edge(i_clk) then
       if s_stall_m1 = '1' then
-        if i_wb_ack = '1' then
-          s_m2_latched_wb_ack <= '1';
-          s_m2_latched_wb_dat <= i_wb_dat;
+        if i_cache_ack = '1' then
+          s_m2_latched_cache_ack <= '1';
+          s_m2_latched_cache_dat <= i_cache_dat;
         end if;
       else
-        s_m2_latched_wb_ack <= '0';
+        s_m2_latched_cache_ack <= '0';
       end if;
     end if;
   end process;
 
   -- Do we have any data from the memory interface?
-  s_m2_wb_ack <= i_wb_ack or s_m2_latched_wb_ack;
-  s_m2_wb_dat <= s_m2_latched_wb_dat when s_m2_latched_wb_ack = '1' else i_wb_dat;
-  s_m2_pending_ack <= s_m1_enable and not s_m2_wb_ack;
+  s_m2_cache_ack <= i_cache_ack or s_m2_latched_cache_ack;
+  s_m2_cache_dat <= s_m2_latched_cache_dat when s_m2_latched_cache_ack = '1' else i_cache_dat;
+  s_m2_pending_ack <= s_m1_enable and not s_m2_cache_ack;
 
   -- Decode the memory operation.
   s_mem_is_signed <= not s_m1_mem_op(2);
@@ -197,10 +197,10 @@ begin
   -- Shift the read data according to the memory address LSBs.
   ShiftMux: with s_m1_shift select
     s_shifted_read_data <=
-      X"00" & s_m2_wb_dat(31 downto 8) when "01",
-      X"0000" & s_m2_wb_dat(31 downto 16) when "10",
-      X"000000" & s_m2_wb_dat(31 downto 24) when "11",
-      s_m2_wb_dat when others;
+      X"00" & s_m2_cache_dat(31 downto 8) when "01",
+      X"0000" & s_m2_cache_dat(31 downto 16) when "10",
+      X"000000" & s_m2_cache_dat(31 downto 24) when "11",
+      s_m2_cache_dat when others;
 
   -- Determine the sign extension bit.
   SignMux: with s_mem_size select
@@ -229,7 +229,7 @@ begin
 
   -- Output result signal (async).
   o_result <= s_adjusted_read_data;
-  o_result_ready <= s_m1_enable and s_m2_wb_ack and (not s_m1_we);
+  o_result_ready <= s_m1_enable and s_m2_cache_ack and (not s_m1_we);
 
   -- Do we need to stall the pipeline (async)?
   -- Note: We do not want to send out a stall request if we're being stalled by

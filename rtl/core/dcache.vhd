@@ -30,7 +30,7 @@ entity dcache is
     i_clk : in std_logic;
     i_rst : in std_logic;
 
-    -- Data interface (WB slave).
+    -- Data interface (slave).
     i_data_cyc : in std_logic;
     i_data_stb : in std_logic;
     i_data_adr : in std_logic_vector(C_WORD_SIZE-1 downto 2);

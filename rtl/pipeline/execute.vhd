@@ -80,17 +80,17 @@ entity execute is
     o_pccorr_adjust : out std_logic;
     o_pccorr_adjusted_pc : out std_logic_vector(C_WORD_SIZE-1 downto 0);
 
-    -- Data Wishbone interface.
-    o_data_cyc : out std_logic;
-    o_data_stb : out std_logic;
-    o_data_adr : out std_logic_vector(C_WORD_SIZE-1 downto 2);
-    o_data_we : out std_logic;
-    o_data_sel : out std_logic_vector(C_WORD_SIZE/8-1 downto 0);
-    o_data_dat : out std_logic_vector(C_WORD_SIZE-1 downto 0);
-    i_data_dat : in std_logic_vector(C_WORD_SIZE-1 downto 0);
-    i_data_ack : in std_logic;
-    i_data_stall : in std_logic;
-    i_data_err : in std_logic;
+    -- Data cache interface.
+    o_cache_cyc : out std_logic;
+    o_cache_stb : out std_logic;
+    o_cache_adr : out std_logic_vector(C_WORD_SIZE-1 downto 2);
+    o_cache_we : out std_logic;
+    o_cache_sel : out std_logic_vector(C_WORD_SIZE/8-1 downto 0);
+    o_cache_dat : out std_logic_vector(C_WORD_SIZE-1 downto 0);
+    i_cache_dat : in std_logic_vector(C_WORD_SIZE-1 downto 0);
+    i_cache_ack : in std_logic;
+    i_cache_stall : in std_logic;
+    i_cache_err : in std_logic;
 
     -- Outputs from the different pipeline stages (async).
     o_ex1_next_dst_reg : out T_DST_REG;
@@ -297,17 +297,17 @@ begin
       i_mem_adr => s_agu_result,
       i_mem_dat => i_src_c,
 
-      -- Wishbone master interface.
-      o_wb_cyc => o_data_cyc,
-      o_wb_stb => o_data_stb,
-      o_wb_adr => o_data_adr,
-      o_wb_we => o_data_we,
-      o_wb_sel => o_data_sel,
-      o_wb_dat => o_data_dat,
-      i_wb_dat => i_data_dat,
-      i_wb_ack => i_data_ack,
-      i_wb_stall => i_data_stall,
-      i_wb_err => i_data_err,
+      -- Data cache master interface.
+      o_cache_cyc => o_cache_cyc,
+      o_cache_stb => o_cache_stb,
+      o_cache_adr => o_cache_adr,
+      o_cache_we => o_cache_we,
+      o_cache_sel => o_cache_sel,
+      o_cache_dat => o_cache_dat,
+      i_cache_dat => i_cache_dat,
+      i_cache_ack => i_cache_ack,
+      i_cache_stall => i_cache_stall,
+      i_cache_err => i_cache_err,
 
       -- Result (async, ready in EX2).
       o_result => s_mem_result,
