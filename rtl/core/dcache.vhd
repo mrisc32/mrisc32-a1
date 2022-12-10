@@ -31,16 +31,14 @@ entity dcache is
     i_rst : in std_logic;
 
     -- Data interface (slave).
-    i_data_cyc : in std_logic;
-    i_data_stb : in std_logic;
+    i_data_req : in std_logic;
     i_data_adr : in std_logic_vector(C_WORD_SIZE-1 downto 2);
     i_data_dat : in std_logic_vector(C_WORD_SIZE-1 downto 0);
     i_data_we : in std_logic;
     i_data_sel : in std_logic_vector(C_WORD_SIZE/8-1 downto 0);
     o_data_dat : out std_logic_vector(C_WORD_SIZE-1 downto 0);
     o_data_ack : out std_logic;
-    o_data_stall : out std_logic;
-    o_data_err : out std_logic;
+    o_data_busy : out std_logic;
 
     -- Memory interface (WB master).
     o_mem_cyc : out std_logic;
@@ -57,10 +55,9 @@ entity dcache is
 end dcache;
 
 architecture rtl of dcache is
+  signal s_waiting_for_ack : std_logic;
+  signal s_mem_cyc : std_logic;
 begin
-  -- TODO(m): Make a simpler memory interface to the core pipeline, and implement the Wishbone
-  -- controller here (similar to how the icache works).
-
   -- TODO(m): Implement a Store Buffer.
   --   "A store buffer is a hardware structure closer to the memory hierarchy and "buffers" up the
   --    write traffic (stores) from the processor so that the Write-back stage of the processor is
@@ -80,17 +77,31 @@ begin
   --   - ...unless the read request can be satisified by write entries in the queue (or the
   --     currently ongoing write request to the memory).
 
+
+  -- Keep track of ongoing requests (necessary for the CYC signal).
+  process(i_clk, i_rst)
+  begin
+    if i_rst = '1' then
+      s_waiting_for_ack <= '0';
+    elsif rising_edge(i_clk) then
+      if s_waiting_for_ack = '0' or i_mem_ack = '1' then
+        s_waiting_for_ack <= i_data_req;
+      end if;
+    end if;
+  end process;
+
+  s_mem_cyc <= i_data_req or s_waiting_for_ack;
+
   -- We just forward all requests to the main memory interface.
-  o_mem_cyc <= i_data_cyc;
-  o_mem_stb <= i_data_stb;
+  o_mem_cyc <= s_mem_cyc;
+  o_mem_stb <= i_data_req;
   o_mem_adr <= i_data_adr;
   o_mem_dat <= i_data_dat;
   o_mem_we <= i_data_we;
   o_mem_sel <= i_data_sel;
 
-  -- ...and send the result right back.
+  -- ...send the result right back.
   o_data_dat <= i_mem_dat;
   o_data_ack <= i_mem_ack;
-  o_data_stall <= i_mem_stall;
-  o_data_err <= i_mem_err;
+  o_data_busy <= i_mem_stall;
 end rtl;

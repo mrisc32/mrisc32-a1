@@ -81,16 +81,14 @@ entity execute is
     o_pccorr_adjusted_pc : out std_logic_vector(C_WORD_SIZE-1 downto 0);
 
     -- Data cache interface.
-    o_cache_cyc : out std_logic;
-    o_cache_stb : out std_logic;
+    o_cache_req : out std_logic;
     o_cache_adr : out std_logic_vector(C_WORD_SIZE-1 downto 2);
     o_cache_we : out std_logic;
     o_cache_sel : out std_logic_vector(C_WORD_SIZE/8-1 downto 0);
     o_cache_dat : out std_logic_vector(C_WORD_SIZE-1 downto 0);
     i_cache_dat : in std_logic_vector(C_WORD_SIZE-1 downto 0);
     i_cache_ack : in std_logic;
-    i_cache_stall : in std_logic;
-    i_cache_err : in std_logic;
+    i_cache_busy : in std_logic;
 
     -- Outputs from the different pipeline stages (async).
     o_ex1_next_dst_reg : out T_DST_REG;
@@ -298,16 +296,14 @@ begin
       i_mem_dat => i_src_c,
 
       -- Data cache master interface.
-      o_cache_cyc => o_cache_cyc,
-      o_cache_stb => o_cache_stb,
+      o_cache_req => o_cache_req,
       o_cache_adr => o_cache_adr,
       o_cache_we => o_cache_we,
       o_cache_sel => o_cache_sel,
       o_cache_dat => o_cache_dat,
       i_cache_dat => i_cache_dat,
       i_cache_ack => i_cache_ack,
-      i_cache_stall => i_cache_stall,
-      i_cache_err => i_cache_err,
+      i_cache_busy => i_cache_busy,
 
       -- Result (async, ready in EX2).
       o_result => s_mem_result,

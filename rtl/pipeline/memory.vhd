@@ -42,16 +42,14 @@ entity memory is
     i_mem_dat : in std_logic_vector(C_WORD_SIZE-1 downto 0);
 
     -- Data cache master interface.
-    o_cache_cyc : out std_logic;
-    o_cache_stb : out std_logic;
+    o_cache_req : out std_logic;
     o_cache_adr : out std_logic_vector(C_WORD_SIZE-1 downto 2);
     o_cache_we : out std_logic;   -- 1 = write, 0 = read
     o_cache_sel : out std_logic_vector(C_WORD_SIZE/8-1 downto 0);
     o_cache_dat : out std_logic_vector(C_WORD_SIZE-1 downto 0);
     i_cache_dat : in std_logic_vector(C_WORD_SIZE-1 downto 0);
     i_cache_ack : in std_logic;
-    i_cache_stall : in std_logic;
-    i_cache_err : in std_logic;
+    i_cache_busy : in std_logic;
 
     -- Outputs (async).
     o_result : out std_logic_vector(C_WORD_SIZE-1 downto 0);
@@ -121,15 +119,14 @@ begin
   s_new_request <= i_mem_enable and (s_repeat_request or not (i_stall or s_m2_pending_ack));
 
   -- Outputs to the cache interface (async).
-  o_cache_cyc <= (i_mem_enable or s_m1_enable) and ((not i_stall) or s_m2_pending_ack or i_cache_ack);
-  o_cache_stb <= s_new_request;
+  o_cache_req <= s_new_request;
   o_cache_adr <= i_mem_adr(C_WORD_SIZE-1 downto 2);
   o_cache_we <= s_mem_we;
   o_cache_sel <= s_mem_byte_mask;
   o_cache_dat <= s_mem_store_data;
 
   -- Did we get a stall (i.e. repeat) request from the cache?
-  s_next_repeat_request <= s_new_request and i_cache_stall;
+  s_next_repeat_request <= s_new_request and i_cache_busy;
   process(i_clk, i_rst)
   begin
     if i_rst = '1' then

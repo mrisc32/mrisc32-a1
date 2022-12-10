@@ -72,16 +72,14 @@ architecture rtl of core is
   signal s_instr_ack : std_logic;
 
   -- Pipeline data bus master signals.
-  signal s_data_cyc : std_logic;
-  signal s_data_stb : std_logic;
+  signal s_data_req : std_logic;
   signal s_data_adr : std_logic_vector(C_WORD_SIZE-1 downto 2);
   signal s_data_dat_w : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_data_we : std_logic;
   signal s_data_sel : std_logic_vector(C_WORD_SIZE/8-1 downto 0);
   signal s_data_dat : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_data_ack : std_logic;
-  signal s_data_stall : std_logic;
-  signal s_data_err : std_logic;
+  signal s_data_busy : std_logic;
 begin
   --------------------------------------------------------------------------------------------------
   -- Pipeline.
@@ -102,16 +100,14 @@ begin
       i_instr_ack => s_instr_ack,
 
       -- Data interface.
-      o_data_cyc => s_data_cyc,
-      o_data_stb => s_data_stb,
+      o_data_req => s_data_req,
       o_data_adr => s_data_adr,
       o_data_dat => s_data_dat_w,
       o_data_we => s_data_we,
       o_data_sel => s_data_sel,
       i_data_dat => s_data_dat,
       i_data_ack => s_data_ack,
-      i_data_stall => s_data_stall,
-      i_data_err => s_data_err,
+      i_data_busy => s_data_busy,
 
       -- Debug trace interface.
       o_debug_trace => o_debug_trace
@@ -158,16 +154,14 @@ begin
       i_rst => i_rst,
 
       -- From data.
-      i_data_cyc => s_data_cyc,
-      i_data_stb => s_data_stb,
+      i_data_req => s_data_req,
       i_data_adr => s_data_adr,
       i_data_dat => s_data_dat_w,
       i_data_we => s_data_we,
       i_data_sel => s_data_sel,
       o_data_dat => s_data_dat,
       o_data_ack => s_data_ack,
-      o_data_stall => s_data_stall,
-      o_data_err => s_data_err,
+      o_data_busy => s_data_busy,
 
       -- To external memory.
       o_mem_cyc => o_dmem_cyc,

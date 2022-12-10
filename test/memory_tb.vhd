@@ -37,16 +37,14 @@ architecture behavioral of memory_tb is
   signal s_mem_adr : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_mem_dat : std_logic_vector(C_WORD_SIZE-1 downto 0);
 
-  signal s_cache_cyc : std_logic;
-  signal s_cache_stb : std_logic;
+  signal s_cache_req : std_logic;
   signal s_cache_adr : std_logic_vector(C_WORD_SIZE-1 downto 2);
   signal s_cache_we : std_logic;
   signal s_cache_sel : std_logic_vector(C_WORD_SIZE/8-1 downto 0);
   signal s_cache_dat_out : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_cache_dat : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_cache_ack : std_logic;
-  signal s_cache_stall : std_logic;
-  signal s_cache_err : std_logic;
+  signal s_cache_busy   : std_logic;
 
   signal s_result : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_result_ready : std_logic;
@@ -63,16 +61,14 @@ begin
       i_mem_adr => s_mem_adr,
       i_mem_dat => s_mem_dat,
 
-      o_cache_cyc => s_cache_cyc,
-      o_cache_stb => s_cache_stb,
+      o_cache_req => s_cache_req,
       o_cache_adr => s_cache_adr,
       o_cache_we => s_cache_we,
       o_cache_sel => s_cache_sel,
       o_cache_dat => s_cache_dat_out,
       i_cache_dat => s_cache_dat,
       i_cache_ack => s_cache_ack,
-      i_cache_stall => s_cache_stall,
-      i_cache_err => s_cache_err,
+      i_cache_busy   => s_cache_busy  ,
 
       o_result => s_result,
       o_result_ready => s_result_ready
@@ -91,12 +87,10 @@ begin
 
       cache_dat : std_logic_vector(C_WORD_SIZE-1 downto 0);
       cache_ack : std_logic;
-      cache_stall : std_logic;
-      cache_err : std_logic;
+      cache_busy   : std_logic;
 
       -- Expected outputs
-      cache_cyc : std_logic;
-      cache_stb : std_logic;
+      cache_req : std_logic;
       cache_adr : std_logic_vector(C_WORD_SIZE-1 downto 2);
       cache_we : std_logic;
       cache_sel : std_logic_vector(C_WORD_SIZE/8-1 downto 0);
@@ -108,76 +102,76 @@ begin
     end record;
     type pattern_array is array (natural range <>) of pattern_type;
     constant patterns : pattern_array := (
-        -- ===[ Inputs ]=====================================================  ===[ Outputs ]============================================
+        -- ===[ Inputs ]=================================================  ===[ Outputs ]========================================
 
         -- No-op.
-        ('0', '0',C_MEM_OP_NONE,    32x"00",32x"00", x"00000000",'0','0','0',  '0','0',30x"00",'0',x"0",x"00000000", x"00000000",'0','0'),
-        ('0', '0',C_MEM_OP_NONE,    32x"00",32x"00", x"00000000",'0','0','0',  '0','0',30x"00",'0',x"0",x"00000000", x"00000000",'0','0'),
-        ('0', '0',C_MEM_OP_NONE,    32x"00",32x"00", x"00000000",'0','0','0',  '0','0',30x"00",'0',x"0",x"00000000", x"00000000",'0','0'),
+        ('0', '0',C_MEM_OP_NONE,    32x"00",32x"00", x"00000000",'0','0',  '0',30x"00",'0',x"0",x"00000000", x"00000000",'0','0'),
+        ('0', '0',C_MEM_OP_NONE,    32x"00",32x"00", x"00000000",'0','0',  '0',30x"00",'0',x"0",x"00000000", x"00000000",'0','0'),
+        ('0', '0',C_MEM_OP_NONE,    32x"00",32x"00", x"00000000",'0','0',  '0',30x"00",'0',x"0",x"00000000", x"00000000",'0','0'),
 
         -- Pipelined 32-bit memory load and store.
-        ('0', '1',C_MEM_OP_LOAD32,  32x"24",32x"00", x"00000000",'0','0','0',  '1','1',30x"09",'0',x"f",x"00000000", x"00000000",'0','0'),
-        ('0', '1',C_MEM_OP_STORE32, 32x"28",32x"21", x"00000012",'1','0','0',  '1','1',30x"0a",'1',x"f",x"00000021", x"00000012",'1','0'),
-        ('0', '0',C_MEM_OP_NONE,    32x"00",32x"00", x"00000000",'1','0','0',  '1','0',30x"00",'0',x"0",x"00000000", x"00000000",'0','0'),
+        ('0', '1',C_MEM_OP_LOAD32,  32x"24",32x"00", x"00000000",'0','0',  '1',30x"09",'0',x"f",x"00000000", x"00000000",'0','0'),
+        ('0', '1',C_MEM_OP_STORE32, 32x"28",32x"21", x"00000012",'1','0',  '1',30x"0a",'1',x"f",x"00000021", x"00000012",'1','0'),
+        ('0', '0',C_MEM_OP_NONE,    32x"00",32x"00", x"00000000",'1','0',  '0',30x"00",'0',x"0",x"00000000", x"00000000",'0','0'),
 
         -- Pipelined 16-bit memory load and store.
-        ('0', '1',C_MEM_OP_LOADU16, 32x"24",32x"00", x"00000000",'0','0','0',  '1','1',30x"09",'0',x"3",x"00000000", x"00000000",'0','0'),
-        ('0', '1',C_MEM_OP_LOADU16, 32x"26",32x"00", x"00348012",'1','0','0',  '1','1',30x"09",'0',x"c",x"00000000", x"00008012",'1','0'),
-        ('0', '1',C_MEM_OP_LOAD16,  32x"24",32x"00", x"00348012",'1','0','0',  '1','1',30x"09",'0',x"3",x"00000000", x"00000034",'1','0'),
-        ('0', '1',C_MEM_OP_LOAD16,  32x"26",32x"00", x"00348012",'1','0','0',  '1','1',30x"09",'0',x"c",x"00000000", x"ffff8012",'1','0'),
-        ('0', '1',C_MEM_OP_STORE16, 32x"28",32x"43", x"00348012",'1','0','0',  '1','1',30x"0a",'1',x"3",x"00000043", x"00000034",'1','0'),
-        ('0', '1',C_MEM_OP_STORE16, 32x"2a",32x"65", x"00000000",'1','0','0',  '1','1',30x"0a",'1',x"c",x"00650000", x"00000000",'0','0'),
-        ('0', '0',C_MEM_OP_NONE,    32x"00",32x"00", x"00000000",'1','0','0',  '1','0',30x"00",'0',x"0",x"00000000", x"00000000",'0','0'),
+        ('0', '1',C_MEM_OP_LOADU16, 32x"24",32x"00", x"00000000",'0','0',  '1',30x"09",'0',x"3",x"00000000", x"00000000",'0','0'),
+        ('0', '1',C_MEM_OP_LOADU16, 32x"26",32x"00", x"00348012",'1','0',  '1',30x"09",'0',x"c",x"00000000", x"00008012",'1','0'),
+        ('0', '1',C_MEM_OP_LOAD16,  32x"24",32x"00", x"00348012",'1','0',  '1',30x"09",'0',x"3",x"00000000", x"00000034",'1','0'),
+        ('0', '1',C_MEM_OP_LOAD16,  32x"26",32x"00", x"00348012",'1','0',  '1',30x"09",'0',x"c",x"00000000", x"ffff8012",'1','0'),
+        ('0', '1',C_MEM_OP_STORE16, 32x"28",32x"43", x"00348012",'1','0',  '1',30x"0a",'1',x"3",x"00000043", x"00000034",'1','0'),
+        ('0', '1',C_MEM_OP_STORE16, 32x"2a",32x"65", x"00000000",'1','0',  '1',30x"0a",'1',x"c",x"00650000", x"00000000",'0','0'),
+        ('0', '0',C_MEM_OP_NONE,    32x"00",32x"00", x"00000000",'1','0',  '0',30x"00",'0',x"0",x"00000000", x"00000000",'0','0'),
 
         -- Pipelined 8-bit memory load and store.
-        ('0', '1',C_MEM_OP_LOADU8,  32x"24",32x"00", x"00000000",'0','0','0',  '1','1',30x"09",'0',x"1",x"00000000", x"00000000",'0','0'),
-        ('0', '1',C_MEM_OP_LOADU8,  32x"25",32x"00", x"87654321",'1','0','0',  '1','1',30x"09",'0',x"2",x"00000000", x"00000021",'1','0'),
-        ('0', '1',C_MEM_OP_LOADU8,  32x"26",32x"00", x"87654321",'1','0','0',  '1','1',30x"09",'0',x"4",x"00000000", x"00000043",'1','0'),
-        ('0', '1',C_MEM_OP_LOADU8,  32x"27",32x"00", x"87654321",'1','0','0',  '1','1',30x"09",'0',x"8",x"00000000", x"00000065",'1','0'),
-        ('0', '1',C_MEM_OP_LOAD8,   32x"24",32x"00", x"87654321",'1','0','0',  '1','1',30x"09",'0',x"1",x"00000000", x"00000087",'1','0'),
-        ('0', '1',C_MEM_OP_LOAD8,   32x"25",32x"00", x"87654321",'1','0','0',  '1','1',30x"09",'0',x"2",x"00000000", x"00000021",'1','0'),
-        ('0', '1',C_MEM_OP_LOAD8,   32x"26",32x"00", x"87654321",'1','0','0',  '1','1',30x"09",'0',x"4",x"00000000", x"00000043",'1','0'),
-        ('0', '1',C_MEM_OP_LOAD8,   32x"27",32x"00", x"87654321",'1','0','0',  '1','1',30x"09",'0',x"8",x"00000000", x"00000065",'1','0'),
-        ('0', '1',C_MEM_OP_STORE8,  32x"28",32x"12", x"87654321",'1','0','0',  '1','1',30x"0a",'1',x"1",x"00000012", x"ffffff87",'1','0'),
-        ('0', '1',C_MEM_OP_STORE8,  32x"29",32x"34", x"00000000",'1','0','0',  '1','1',30x"0a",'1',x"2",x"00003400", x"00000000",'0','0'),
-        ('0', '1',C_MEM_OP_STORE8,  32x"2a",32x"56", x"00000000",'1','0','0',  '1','1',30x"0a",'1',x"4",x"00560000", x"00000000",'0','0'),
-        ('0', '1',C_MEM_OP_STORE8,  32x"2b",32x"78", x"00000000",'1','0','0',  '1','1',30x"0a",'1',x"8",x"78000000", x"00000000",'0','0'),
-        ('0', '0',C_MEM_OP_NONE,    32x"00",32x"00", x"00000000",'1','0','0',  '1','0',30x"00",'0',x"0",x"00000000", x"00000000",'0','0'),
+        ('0', '1',C_MEM_OP_LOADU8,  32x"24",32x"00", x"00000000",'0','0',  '1',30x"09",'0',x"1",x"00000000", x"00000000",'0','0'),
+        ('0', '1',C_MEM_OP_LOADU8,  32x"25",32x"00", x"87654321",'1','0',  '1',30x"09",'0',x"2",x"00000000", x"00000021",'1','0'),
+        ('0', '1',C_MEM_OP_LOADU8,  32x"26",32x"00", x"87654321",'1','0',  '1',30x"09",'0',x"4",x"00000000", x"00000043",'1','0'),
+        ('0', '1',C_MEM_OP_LOADU8,  32x"27",32x"00", x"87654321",'1','0',  '1',30x"09",'0',x"8",x"00000000", x"00000065",'1','0'),
+        ('0', '1',C_MEM_OP_LOAD8,   32x"24",32x"00", x"87654321",'1','0',  '1',30x"09",'0',x"1",x"00000000", x"00000087",'1','0'),
+        ('0', '1',C_MEM_OP_LOAD8,   32x"25",32x"00", x"87654321",'1','0',  '1',30x"09",'0',x"2",x"00000000", x"00000021",'1','0'),
+        ('0', '1',C_MEM_OP_LOAD8,   32x"26",32x"00", x"87654321",'1','0',  '1',30x"09",'0',x"4",x"00000000", x"00000043",'1','0'),
+        ('0', '1',C_MEM_OP_LOAD8,   32x"27",32x"00", x"87654321",'1','0',  '1',30x"09",'0',x"8",x"00000000", x"00000065",'1','0'),
+        ('0', '1',C_MEM_OP_STORE8,  32x"28",32x"12", x"87654321",'1','0',  '1',30x"0a",'1',x"1",x"00000012", x"ffffff87",'1','0'),
+        ('0', '1',C_MEM_OP_STORE8,  32x"29",32x"34", x"00000000",'1','0',  '1',30x"0a",'1',x"2",x"00003400", x"00000000",'0','0'),
+        ('0', '1',C_MEM_OP_STORE8,  32x"2a",32x"56", x"00000000",'1','0',  '1',30x"0a",'1',x"4",x"00560000", x"00000000",'0','0'),
+        ('0', '1',C_MEM_OP_STORE8,  32x"2b",32x"78", x"00000000",'1','0',  '1',30x"0a",'1',x"8",x"78000000", x"00000000",'0','0'),
+        ('0', '0',C_MEM_OP_NONE,    32x"00",32x"00", x"00000000",'1','0',  '0',30x"00",'0',x"0",x"00000000", x"00000000",'0','0'),
 
         -- Pipelined read burst from the memory, with two-cycle stall.
-        ('0', '1',C_MEM_OP_LOAD32,  32x"24",32x"00", x"00000000",'0','0','0',  '1','1',30x"09",'0',x"f",x"00000000", x"00000000",'0','0'), -- 26
-        ('0', '1',C_MEM_OP_LOAD32,  32x"28",32x"00", x"00000012",'1','1','0',  '1','1',30x"0a",'0',x"f",x"00000000", x"00000012",'1','1'),
-        ('0', '1',C_MEM_OP_LOAD32,  32x"28",32x"00", x"00000000",'0','1','0',  '1','1',30x"0a",'0',x"f",x"00000000", x"00000012",'1','1'),
-        ('0', '1',C_MEM_OP_LOAD32,  32x"28",32x"00", x"00000000",'0','0','0',  '1','1',30x"0a",'0',x"f",x"00000000", x"00000012",'1','0'),
-        ('0', '1',C_MEM_OP_LOAD32,  32x"2c",32x"00", x"00000034",'1','0','0',  '1','1',30x"0b",'0',x"f",x"00000000", x"00000034",'1','0'),
-        ('0', '0',C_MEM_OP_NONE,    32x"00",32x"00", x"00000056",'1','0','0',  '1','0',30x"00",'0',x"0",x"00000000", x"00000056",'1','0'),
+        ('0', '1',C_MEM_OP_LOAD32,  32x"24",32x"00", x"00000000",'0','0',  '1',30x"09",'0',x"f",x"00000000", x"00000000",'0','0'), -- 26
+        ('0', '1',C_MEM_OP_LOAD32,  32x"28",32x"00", x"00000012",'1','1',  '1',30x"0a",'0',x"f",x"00000000", x"00000012",'1','1'),
+        ('0', '1',C_MEM_OP_LOAD32,  32x"28",32x"00", x"00000000",'0','1',  '1',30x"0a",'0',x"f",x"00000000", x"00000012",'1','1'),
+        ('0', '1',C_MEM_OP_LOAD32,  32x"28",32x"00", x"00000000",'0','0',  '1',30x"0a",'0',x"f",x"00000000", x"00000012",'1','0'),
+        ('0', '1',C_MEM_OP_LOAD32,  32x"2c",32x"00", x"00000034",'1','0',  '1',30x"0b",'0',x"f",x"00000000", x"00000034",'1','0'),
+        ('0', '0',C_MEM_OP_NONE,    32x"00",32x"00", x"00000056",'1','0',  '0',30x"00",'0',x"0",x"00000000", x"00000056",'1','0'),
 
         -- Pipelined read burst from the memory, with delayed ack and three-cycle stall.
-        ('0', '1',C_MEM_OP_LOAD32,  32x"24",32x"00", x"00000000",'0','0','0',  '1','1',30x"09",'0',x"f",x"00000000", x"00000000",'0','0'), -- 32
-        ('1', '1',C_MEM_OP_LOAD32,  32x"28",32x"00", x"00000000",'0','0','0',  '1','0',30x"0a",'0',x"f",x"00000000", x"00000000",'0','0'),
-        ('1', '1',C_MEM_OP_LOAD32,  32x"28",32x"00", x"00000012",'1','0','0',  '1','0',30x"0a",'0',x"f",x"00000000", x"00000012",'1','0'),
-        ('1', '1',C_MEM_OP_LOAD32,  32x"28",32x"00", x"00000000",'0','0','0',  '0','0',30x"0a",'0',x"f",x"00000000", x"00000012",'1','0'),
-        ('0', '1',C_MEM_OP_LOAD32,  32x"28",32x"00", x"00000000",'0','0','0',  '1','1',30x"0a",'0',x"f",x"00000000", x"00000012",'1','0'),
-        ('0', '1',C_MEM_OP_LOAD32,  32x"2c",32x"00", x"00000034",'1','0','0',  '1','1',30x"0b",'0',x"f",x"00000000", x"00000034",'1','0'),
-        ('0', '0',C_MEM_OP_NONE,    32x"00",32x"00", x"00000056",'1','0','0',  '1','0',30x"00",'0',x"0",x"00000000", x"00000056",'1','0'),
+        ('0', '1',C_MEM_OP_LOAD32,  32x"24",32x"00", x"00000000",'0','0',  '1',30x"09",'0',x"f",x"00000000", x"00000000",'0','0'), -- 32
+        ('1', '1',C_MEM_OP_LOAD32,  32x"28",32x"00", x"00000000",'0','0',  '0',30x"0a",'0',x"f",x"00000000", x"00000000",'0','0'),
+        ('1', '1',C_MEM_OP_LOAD32,  32x"28",32x"00", x"00000012",'1','0',  '0',30x"0a",'0',x"f",x"00000000", x"00000012",'1','0'),
+        ('1', '1',C_MEM_OP_LOAD32,  32x"28",32x"00", x"00000000",'0','0',  '0',30x"0a",'0',x"f",x"00000000", x"00000012",'1','0'),
+        ('0', '1',C_MEM_OP_LOAD32,  32x"28",32x"00", x"00000000",'0','0',  '1',30x"0a",'0',x"f",x"00000000", x"00000012",'1','0'),
+        ('0', '1',C_MEM_OP_LOAD32,  32x"2c",32x"00", x"00000034",'1','0',  '1',30x"0b",'0',x"f",x"00000000", x"00000034",'1','0'),
+        ('0', '0',C_MEM_OP_NONE,    32x"00",32x"00", x"00000056",'1','0',  '0',30x"00",'0',x"0",x"00000000", x"00000056",'1','0'),
 
         -- Pipelined read burst with one long (multi cycle) memory request.
-        ('0', '1',C_MEM_OP_LOAD32,  32x"24",32x"00", x"00000000",'0','0','0',  '1','1',30x"09",'0',x"f",x"00000000", x"00000000",'0','0'),
-        ('0', '1',C_MEM_OP_LOAD32,  32x"28",32x"00", x"00000000",'0','0','0',  '1','0',30x"0a",'0',x"f",x"00000000", x"00000000",'0','1'),
-        ('0', '1',C_MEM_OP_LOAD32,  32x"28",32x"00", x"00000000",'0','0','0',  '1','0',30x"0a",'0',x"f",x"00000000", x"00000000",'0','1'),
-        ('0', '1',C_MEM_OP_LOAD32,  32x"28",32x"00", x"00000000",'0','0','0',  '1','0',30x"0a",'0',x"f",x"00000000", x"00000000",'0','1'),
-        ('0', '1',C_MEM_OP_LOAD32,  32x"28",32x"00", x"00000012",'1','0','0',  '1','1',30x"0a",'0',x"f",x"00000000", x"00000012",'1','0'),
-        ('0', '1',C_MEM_OP_LOAD32,  32x"2c",32x"00", x"00000034",'1','0','0',  '1','1',30x"0b",'0',x"f",x"00000000", x"00000034",'1','0'),
-        ('0', '0',C_MEM_OP_NONE,    32x"00",32x"00", x"00000056",'1','0','0',  '1','0',30x"00",'0',x"0",x"00000000", x"00000056",'1','0'),
+        ('0', '1',C_MEM_OP_LOAD32,  32x"24",32x"00", x"00000000",'0','0',  '1',30x"09",'0',x"f",x"00000000", x"00000000",'0','0'),
+        ('0', '1',C_MEM_OP_LOAD32,  32x"28",32x"00", x"00000000",'0','0',  '0',30x"0a",'0',x"f",x"00000000", x"00000000",'0','1'),
+        ('0', '1',C_MEM_OP_LOAD32,  32x"28",32x"00", x"00000000",'0','0',  '0',30x"0a",'0',x"f",x"00000000", x"00000000",'0','1'),
+        ('0', '1',C_MEM_OP_LOAD32,  32x"28",32x"00", x"00000000",'0','0',  '0',30x"0a",'0',x"f",x"00000000", x"00000000",'0','1'),
+        ('0', '1',C_MEM_OP_LOAD32,  32x"28",32x"00", x"00000012",'1','0',  '1',30x"0a",'0',x"f",x"00000000", x"00000012",'1','0'),
+        ('0', '1',C_MEM_OP_LOAD32,  32x"2c",32x"00", x"00000034",'1','0',  '1',30x"0b",'0',x"f",x"00000000", x"00000034",'1','0'),
+        ('0', '0',C_MEM_OP_NONE,    32x"00",32x"00", x"00000056",'1','0',  '0',30x"00",'0',x"0",x"00000000", x"00000056",'1','0'),
 
         -- Pipelined write burst to the memory, with one cycle stall.
 
         -- Pipelined write burst to the memory, with one cycle stall.
 
         -- Tail (inactive).
-        ('0', '0',C_MEM_OP_NONE,    32x"00",32x"00", x"00000000",'0','0','0',  '0','0',30x"00",'0',x"0",x"00000000", x"00000000",'0','0'),
-        ('0', '0',C_MEM_OP_NONE,    32x"00",32x"00", x"00000000",'0','0','0',  '0','0',30x"00",'0',x"0",x"00000000", x"00000000",'0','0'),
-        ('0', '0',C_MEM_OP_NONE,    32x"00",32x"00", x"00000000",'0','0','0',  '0','0',30x"00",'0',x"0",x"00000000", x"00000000",'0','0')
+        ('0', '0',C_MEM_OP_NONE,    32x"00",32x"00", x"00000000",'0','0',  '0',30x"00",'0',x"0",x"00000000", x"00000000",'0','0'),
+        ('0', '0',C_MEM_OP_NONE,    32x"00",32x"00", x"00000000",'0','0',  '0',30x"00",'0',x"0",x"00000000", x"00000000",'0','0'),
+        ('0', '0',C_MEM_OP_NONE,    32x"00",32x"00", x"00000000",'0','0',  '0',30x"00",'0',x"0",x"00000000", x"00000000",'0','0')
       );
   begin
     -- Clear all input signals.
@@ -188,8 +182,7 @@ begin
     s_mem_dat <= (others => '0');
     s_cache_dat <= (others => '0');
     s_cache_ack <= '0';
-    s_cache_stall <= '0';
-    s_cache_err <= '0';
+    s_cache_busy   <= '0';
 
     -- Start by resetting the DUT (to have a defined state).
     s_rst <= '1';
@@ -215,39 +208,33 @@ begin
       s_mem_dat <= patterns(i).mem_dat;
       s_cache_dat <= patterns(i).cache_dat;
       s_cache_ack <= patterns(i).cache_ack;
-      s_cache_stall <= patterns(i).cache_stall;
-      s_cache_err <= patterns(i).cache_err;
+      s_cache_busy   <= patterns(i).cache_busy  ;
 
       -- Wait for the results.
       wait for 1 ns;
 
       -- Check the outputs.
-      assert s_cache_cyc = patterns(i).cache_cyc
+      assert s_cache_req = patterns(i).cache_req
         report "Bad result (" & integer'image(i) & "):" & lf &
-               "  cache_cyc = " & to_string(s_cache_cyc) & lf &
-               "  expected " & to_string(patterns(i).cache_cyc)
+               "  cache_req = " & to_string(s_cache_req) & lf &
+               "  expected " & to_string(patterns(i).cache_req)
             severity error;
-      assert s_cache_stb = patterns(i).cache_stb
-        report "Bad result (" & integer'image(i) & "):" & lf &
-               "  cache_stb = " & to_string(s_cache_stb) & lf &
-               "  expected " & to_string(patterns(i).cache_stb)
-            severity error;
-      assert s_cache_adr = patterns(i).cache_adr or (s_cache_stb and s_cache_cyc) = '0'
+      assert s_cache_adr = patterns(i).cache_adr or s_cache_req = '0'
         report "Bad result (" & integer'image(i) & "):" & lf &
                "  cache_adr = " & to_string(s_cache_adr) & lf &
                "  expected " & to_string(patterns(i).cache_adr)
             severity error;
-      assert s_cache_we = patterns(i).cache_we or (s_cache_stb and s_cache_cyc) = '0'
+      assert s_cache_we = patterns(i).cache_we or s_cache_req = '0'
         report "Bad result (" & integer'image(i) & "):" & lf &
                "  cache_we = " & to_string(s_cache_we) & lf &
                "  expected " & to_string(patterns(i).cache_we)
             severity error;
-      assert s_cache_sel = patterns(i).cache_sel or (s_cache_stb and s_cache_cyc) = '0'
+      assert s_cache_sel = patterns(i).cache_sel or s_cache_req = '0'
         report "Bad result (" & integer'image(i) & "):" & lf &
                "  cache_sel = " & to_string(s_cache_sel) & lf &
                "  expected " & to_string(patterns(i).cache_sel)
             severity error;
-      assert s_cache_dat_out = patterns(i).cache_dat_out or (s_cache_stb and s_cache_cyc) = '0'
+      assert s_cache_dat_out = patterns(i).cache_dat_out or s_cache_req = '0'
         report "Bad result (" & integer'image(i) & "):" & lf &
                "  cache_dat_out = " & to_string(s_cache_dat_out) & lf &
                "  expected " & to_string(patterns(i).cache_dat_out)

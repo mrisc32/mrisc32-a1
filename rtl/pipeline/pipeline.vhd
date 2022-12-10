@@ -43,16 +43,14 @@ entity pipeline is
     i_instr_ack : in std_logic;
 
     -- Data cache interface.
-    o_data_cyc : out std_logic;
-    o_data_stb : out std_logic;
+    o_data_req : out std_logic;
     o_data_adr : out std_logic_vector(C_WORD_SIZE-1 downto 2);
     o_data_dat : out std_logic_vector(C_WORD_SIZE-1 downto 0);
     o_data_we : out std_logic;
     o_data_sel : out std_logic_vector(C_WORD_SIZE/8-1 downto 0);
     i_data_dat : in std_logic_vector(C_WORD_SIZE-1 downto 0);
     i_data_ack : in std_logic;
-    i_data_stall : in std_logic;
-    i_data_err : in std_logic;
+    i_data_busy : in std_logic;
 
     -- Debug trace interface.
     o_debug_trace : out T_DEBUG_TRACE
@@ -518,16 +516,14 @@ begin
       o_pccorr_adjusted_pc => s_ex1_pccorr_adjusted_pc,
 
       -- Data cache interface.
-      o_cache_cyc => o_data_cyc,
-      o_cache_stb => o_data_stb,
+      o_cache_req => o_data_req,
       o_cache_adr => o_data_adr,
       o_cache_we => o_data_we,
       o_cache_sel => o_data_sel,
       o_cache_dat => o_data_dat,
       i_cache_dat => i_data_dat,
       i_cache_ack => i_data_ack,
-      i_cache_stall => i_data_stall,
-      i_cache_err => i_data_err,
+      i_cache_busy => i_data_busy,
 
       -- To operand forwarding (async).
       o_ex1_next_dst_reg => s_ex1_next_dst_reg,
