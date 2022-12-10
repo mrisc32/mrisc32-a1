@@ -56,7 +56,11 @@ end dcache;
 
 architecture rtl of dcache is
   signal s_waiting_for_ack : std_logic;
+  signal s_waiting_for_write_ack : std_logic;
+  signal s_immediate_ack : std_logic;
+  signal s_busy_w_write : std_logic;
   signal s_mem_cyc : std_logic;
+  signal s_mem_stb : std_logic;
 begin
   -- TODO(m): Implement a Store Buffer.
   --   "A store buffer is a hardware structure closer to the memory hierarchy and "buffers" up the
@@ -78,30 +82,48 @@ begin
   --     currently ongoing write request to the memory).
 
 
-  -- Keep track of ongoing requests (necessary for the CYC signal).
+  -- Keep track of ongoing requests (necessary for the CYC & STB signals).
   process(i_clk, i_rst)
   begin
     if i_rst = '1' then
       s_waiting_for_ack <= '0';
+      s_waiting_for_write_ack <= '0';
+      s_immediate_ack <= '0';
     elsif rising_edge(i_clk) then
       if s_waiting_for_ack = '0' or i_mem_ack = '1' then
-        s_waiting_for_ack <= i_data_req;
+        if i_data_req = '1' and i_mem_stall = '0' then
+          -- Start a new request.
+          s_waiting_for_ack <= '1';
+          s_waiting_for_write_ack <= i_data_we;
+          s_immediate_ack <= i_data_we;
+        else
+          -- End of request, and don't start a new request.
+          s_waiting_for_ack <= '0';
+          s_waiting_for_write_ack <= '0';
+          s_immediate_ack <= '0';
+        end if;
+      else
+        s_immediate_ack <= '0';
       end if;
     end if;
   end process;
 
+  -- Are we servicing a write request "in the background"?
+  s_busy_w_write <= (s_waiting_for_write_ack and not i_mem_ack);
+
   s_mem_cyc <= i_data_req or s_waiting_for_ack;
+  s_mem_stb <= i_data_req and not s_busy_w_write;
 
   -- We just forward all requests to the main memory interface.
   o_mem_cyc <= s_mem_cyc;
-  o_mem_stb <= i_data_req;
+  o_mem_stb <= s_mem_stb;
   o_mem_adr <= i_data_adr;
   o_mem_dat <= i_data_dat;
   o_mem_we <= i_data_we;
   o_mem_sel <= i_data_sel;
 
-  -- ...send the result right back.
+  -- ...send the result back.
   o_data_dat <= i_mem_dat;
-  o_data_ack <= i_mem_ack;
-  o_data_busy <= i_mem_stall;
+  o_data_ack <= s_immediate_ack or (i_mem_ack and not s_waiting_for_write_ack);
+  o_data_busy <= i_mem_stall or s_busy_w_write;
 end rtl;
