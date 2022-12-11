@@ -97,6 +97,12 @@ begin
     type T_MEM_ARRAY is array (0 to C_MEM_NUM_WORDS-1) of std_logic_vector(C_WORD_SIZE-1 downto 0);
     variable v_mem_array : T_MEM_ARRAY;
 
+    -- Memory delayed DAT+ACK arrays (FIFO:s).
+    constant C_MEM_DELAY : integer := 2;
+    type T_MEM_ACK_ARRAY is array (0 to C_MEM_DELAY-1) of std_logic_vector(C_WORD_SIZE downto 0);
+    variable v_instr_ack_array : T_MEM_ACK_ARRAY;
+    variable v_data_ack_array : T_MEM_ACK_ARRAY;
+
     -- File I/O.
     type T_CHAR_FILE is file of character;
     file f_char_file : T_CHAR_FILE;
@@ -105,10 +111,8 @@ begin
     -- Variables for the memory interface.
     variable v_mem_idx : integer;
     variable v_instr_dat : std_logic_vector(C_WORD_SIZE-1 downto 0);
-    variable v_instr_ack : std_logic;
     variable v_write_mask : std_logic_vector(C_WORD_SIZE-1 downto 0);
     variable v_data_dat : std_logic_vector(C_WORD_SIZE-1 downto 0);
-    variable v_data_ack : std_logic;
 
     -- How many CPU cycles should we simulate?
     constant C_TEST_CYCLES : integer := 20000000;
@@ -171,6 +175,10 @@ begin
     for i in 0 to C_MEM_NUM_WORDS-1 loop
       v_mem_array(i) := to_word(0);
     end loop;
+    for i in 0 to C_MEM_DELAY-1 loop
+      v_instr_ack_array(i) := "0" & to_word(0);
+      v_data_ack_array(i) := "0" & to_word(0);
+    end loop;
 
     -- Read the program to run from the binary file core_tb_prg.bin.
     file_open(f_char_file, "out/core_tb_prg.bin");
@@ -221,6 +229,12 @@ begin
 
       -- We should now have memory requests from the Wishbone interfaces.
 
+      -- Shift the ACK arrays.
+      for j in 1 to C_MEM_DELAY-1 loop
+        v_instr_ack_array(j - 1) := v_instr_ack_array(j);
+        v_data_ack_array(j - 1) := v_data_ack_array(j);
+      end loop;
+
       -- Instruction read from the memory.
       v_instr_dat := X"00000000";
       if s_instr_cyc = '1' and s_instr_stb = '1' then
@@ -231,9 +245,9 @@ begin
         elsif (v_mem_idx > 0) and (v_mem_idx < C_MEM_NUM_WORDS) then
           v_instr_dat := v_mem_array(v_mem_idx);
         end if;
-        v_instr_ack := '1';
+        v_instr_ack_array(C_MEM_DELAY-1) := "1" & v_instr_dat;
       else
-        v_instr_ack := '0';
+        v_instr_ack_array(C_MEM_DELAY-1) := "0" & to_word(0);
       end if;
 
       -- Data read/write from/to the memory.
@@ -253,9 +267,9 @@ begin
             v_mem_array(v_mem_idx) := v_data_dat;
           end if;
         end if;
-        v_data_ack := '1';
+        v_data_ack_array(C_MEM_DELAY-1) := "1" & v_data_dat;
       else
-        v_data_ack := '0';
+        v_data_ack_array(C_MEM_DELAY-1) := "0" & to_word(0);
       end if;
 
       -- Write a recrod to the debug trace file.
@@ -268,10 +282,10 @@ begin
       s_clk <= '1';
       wait for 1 ns;
 
-      s_instr_dat <= v_instr_dat;
-      s_instr_ack <= v_instr_ack;
-      s_data_dat <= v_data_dat;
-      s_data_ack <= v_data_ack;
+      s_instr_dat <= v_instr_ack_array(0)(C_WORD_SIZE-1 downto 0);
+      s_instr_ack <= v_instr_ack_array(0)(C_WORD_SIZE);
+      s_data_dat <= v_data_ack_array(0)(C_WORD_SIZE-1 downto 0);
+      s_data_ack <= v_data_ack_array(0)(C_WORD_SIZE);
 
       -- Tick the clock.
       wait for 4 ns;
