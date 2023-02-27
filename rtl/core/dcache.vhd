@@ -55,75 +55,75 @@ entity dcache is
 end dcache;
 
 architecture rtl of dcache is
-  signal s_waiting_for_ack : std_logic;
-  signal s_waiting_for_write_ack : std_logic;
+  constant C_REQ_FIFO_DEPTH : integer := 32;
+  constant C_REQ_FIFO_WIDTH : integer := 1;
+
+  signal s_start_req : std_logic;
+  signal s_ignore_ack : std_logic;
   signal s_immediate_ack : std_logic;
-  signal s_busy_w_write : std_logic;
-  signal s_mem_cyc : std_logic;
-  signal s_mem_stb : std_logic;
+
+  signal s_fifo_wr_en : std_logic;
+  signal s_fifo_wr_data : std_logic_vector(C_REQ_FIFO_WIDTH-1 downto 0);
+  signal s_fifo_full : std_logic;
+  signal s_fifo_rd_en : std_logic;
+  signal s_fifo_rd_data : std_logic_vector(C_REQ_FIFO_WIDTH-1 downto 0);
+  signal s_fifo_empty : std_logic;
 begin
-  -- TODO(m): Implement a Store Buffer.
-  --   "A store buffer is a hardware structure closer to the memory hierarchy and "buffers" up the
-  --    write traffic (stores) from the processor so that the Write-back stage of the processor is
-  --    complete as soon as possible."
-  --   "A store buffer is a mechanism that exists in many current processors to accomplish one or
-  --    more of the following: store access ordering, latency hiding and data forwarding."
-  --
-  -- The store buffer would be a small FIFO queue:
-  --   - Write requests from the core are written to the FIFO queue, if:
-  --     a) A memory read/write request is ongoing, or...
-  --     b) ...the FIFO is not empty (covered by a)?).
-  --   - ...otherwise the request is forwarded directly to the memory.
-  --   - When the FIFO is not empty, write requests are sent to memory from the FIFO queue.
-  --   - When the FIFO is full, write requests from the CPU are stalled, otherwise write requests
-  --     are ACK:ed immediately.
-  --   - Read requests must be stalled until the write queue is empty.
-  --   - ...unless the read request can be satisified by write entries in the queue (or the
-  --     currently ongoing write request to the memory).
+  -- TODO(m): Implement a proper write-through cache to speed up read operations.
 
+  -- We use a FIFO to keep track of ongoing requests.
+  req_fifo: entity work.fifo
+    generic map (
+      G_WIDTH => C_REQ_FIFO_WIDTH,
+      G_DEPTH => C_REQ_FIFO_DEPTH
+    )
+    port map (
+      i_rst => i_rst,
+      i_clk => i_clk,
+      i_wr_en => s_fifo_wr_en,
+      i_wr_data => s_fifo_wr_data,
+      o_full => s_fifo_full,
+      i_rd_en => s_fifo_rd_en,
+      o_rd_data => s_fifo_rd_data,
+      o_empty => s_fifo_empty
+    );
 
-  -- Keep track of ongoing requests (necessary for the CYC & STB signals).
-  process(i_clk, i_rst)
+  -- Shall we send a new request?
+  s_start_req <= i_data_req and (not i_mem_stall) and (not s_fifo_full);
+
+  -- Write requests are ACKed immediately (on the next cycle) whenever possible.
+  process (i_rst, i_clk) is
   begin
     if i_rst = '1' then
-      s_waiting_for_ack <= '0';
-      s_waiting_for_write_ack <= '0';
       s_immediate_ack <= '0';
     elsif rising_edge(i_clk) then
-      if s_waiting_for_ack = '0' or i_mem_ack = '1' then
-        if i_data_req = '1' and i_mem_stall = '0' then
-          -- Start a new request.
-          s_waiting_for_ack <= '1';
-          s_waiting_for_write_ack <= i_data_we;
-          s_immediate_ack <= i_data_we;
-        else
-          -- End of request, and don't start a new request.
-          s_waiting_for_ack <= '0';
-          s_waiting_for_write_ack <= '0';
-          s_immediate_ack <= '0';
-        end if;
-      else
-        s_immediate_ack <= '0';
-      end if;
+      s_immediate_ack <= s_start_req and i_data_we;
     end if;
   end process;
 
-  -- Are we servicing a write request "in the background"?
-  s_busy_w_write <= (s_waiting_for_write_ack and not i_mem_ack);
+  -- We ignore ACKs from the Wishbone interface that have already been ACKed.
+  s_ignore_ack <= s_fifo_rd_data(0);
 
-  s_mem_cyc <= i_data_req or s_waiting_for_ack;
-  s_mem_stb <= i_data_req and not s_busy_w_write;
+  -- Queue memory requests in the FIFO. The purpose is to match ACKs from the Wishbone bus with
+  -- the requests that we have sent.
+  s_fifo_wr_en <= s_start_req;
+  s_fifo_wr_data(0) <= i_data_we;
+
+  -- Read from the request FIFO when we get an ACK from the Wishbone bus.
+  s_fifo_rd_en <= i_mem_ack and (not s_fifo_empty);
 
   -- We just forward all requests to the main memory interface.
-  o_mem_cyc <= s_mem_cyc;
-  o_mem_stb <= s_mem_stb;
+  o_mem_cyc <= i_data_req or (not s_fifo_empty);
+  o_mem_stb <= i_data_req and (not s_fifo_full);
   o_mem_adr <= i_data_adr;
   o_mem_dat <= i_data_dat;
   o_mem_we <= i_data_we;
   o_mem_sel <= i_data_sel;
 
   -- ...send the result back.
+  -- Note: s_immediate_ack and a non-ignored i_mem_ack SHOULD never happen at the same time.
+  -- If they did, one of those ACKs would be lost, which would be bad.
+  o_data_ack <= s_immediate_ack or (i_mem_ack and (not s_ignore_ack));
+  o_data_busy <= i_mem_stall or s_fifo_full;
   o_data_dat <= i_mem_dat;
-  o_data_ack <= s_immediate_ack or (i_mem_ack and not s_waiting_for_write_ack);
-  o_data_busy <= i_mem_stall or s_busy_w_write;
 end rtl;
