@@ -36,6 +36,7 @@ entity execute is
     i_rst : in std_logic;
     i_bubble : in std_logic;
     o_stall : out std_logic;
+    o_invalidate_icache : out std_logic;
 
     -- PC signal from ID (sync).
     i_id_pc : in std_logic_vector(C_WORD_SIZE-1 downto 0);
@@ -622,4 +623,7 @@ begin
   s_stall_mem <= s_div_stall;
   s_stall_div <= s_mem_stall;
   o_stall <= s_stall_ex;
+
+  -- Cache control.
+  o_invalidate_icache <= '0';  -- TODO(m): Implement me!
 end rtl;

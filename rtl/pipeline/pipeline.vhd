@@ -35,6 +35,7 @@ entity pipeline is
     -- Control signals.
     i_clk : in std_logic;
     i_rst : in std_logic;
+    o_invalidate_icache : out std_logic;
 
     -- Instruction cache interface.
     o_instr_req : out std_logic;
@@ -152,6 +153,7 @@ architecture rtl of pipeline is
 
   -- From EX1/EX2/EX3/EX4.
   signal s_ex_stall : std_logic;
+  signal s_invalidate_icache : std_logic;
 
   -- From EX1.
   signal s_ex1_pccorr_target : std_logic_vector(C_WORD_SIZE-1 downto 0);
@@ -471,6 +473,7 @@ begin
       i_bubble => s_rf_bubble,
 
       o_stall => s_ex_stall,
+      o_invalidate_icache => s_invalidate_icache,
 
       -- PC signal from ID (sync).
       i_id_pc => s_id_pc,

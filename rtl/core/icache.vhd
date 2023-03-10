@@ -86,6 +86,7 @@ architecture rtl of icache is
   signal s_last_mem_adr : std_logic_vector(C_WORD_SIZE-1 downto 2);
   signal s_retry_stb : std_logic;
 
+  signal s_invalidate_requested : std_logic;
   signal s_invalidate_addr : unsigned(C_CACHE_ADDR_BITS-1 downto 0);
   signal s_next_invalidate_addr : unsigned(C_CACHE_ADDR_BITS-1 downto 0);
 
@@ -235,14 +236,17 @@ begin
         end if;
 
       when READY =>
-        -- TODO(m): Handle i_invalidate.
         s_next_invalidate_addr <= (others => '0');
         s_write_addr <= std_logic_vector(s_invalidate_addr);
         s_write_data <= (others => '0');
         s_write_en <= '0';
         s_mem_adr <= s_lookup_adr;
 
-        if s_cache_miss = '1' then
+        if s_invalidate_requested = '1' then
+          o_mem_cyc <= '0';
+          s_mem_stb <= '0';
+          s_next_state <= INVALIDATE;
+        elsif s_cache_miss = '1' then
           o_mem_cyc <= '1';
           s_mem_stb <= '1';
           s_next_state <= WAIT_FOR_MEM;
@@ -254,7 +258,6 @@ begin
 
       when WAIT_FOR_MEM =>
         -- TODO(m): Handle i_mem_err.
-        -- TODO(m): Handle i_invalidate.
         s_next_invalidate_addr <= (others => '0');
         s_write_addr <= addr2cache_addr(s_last_mem_adr);
         s_write_data <= make_cache_dat(s_last_mem_adr, i_mem_dat);
@@ -294,11 +297,17 @@ begin
   process(i_clk, i_rst)
   begin
     if i_rst = '1' then
+      s_invalidate_requested <= '0';
       s_invalidate_addr <= (others => '0');
       s_state <= RESET;
       s_last_mem_adr <= (others => '0');
       s_retry_stb <= '0';
     elsif rising_edge(i_clk) then
+      if i_invalidate = '1' then
+        s_invalidate_requested <= '1';
+      elsif s_next_state = INVALIDATE then
+        s_invalidate_requested <= '0';
+      end if;
       s_invalidate_addr <= s_next_invalidate_addr;
       s_state <= s_next_state;
       if s_mem_stb = '1' then

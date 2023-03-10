@@ -65,6 +65,9 @@ entity core is
 end core;
 
 architecture rtl of core is
+  -- Cache control signals.
+  signal s_invalidate_icache : std_logic;
+
   -- Pipeline instruction bus master signals.
   signal s_instr_req : std_logic;
   signal s_instr_adr : std_logic_vector(C_WORD_SIZE-1 downto 2);
@@ -92,6 +95,9 @@ begin
     port map (
       i_clk => i_clk,
       i_rst => i_rst,
+
+      -- Cache control signals.
+      o_invalidate_icache => s_invalidate_icache,
 
       -- Instruction interface.
       o_instr_req => s_instr_req,
@@ -126,7 +132,7 @@ begin
     port map (
       i_clk => i_clk,
       i_rst => i_rst,
-      i_invalidate => '0',  -- TODO(m): Implement me!
+      i_invalidate => s_invalidate_icache,
 
       -- From instruction fetch.
       i_instr_req => s_instr_req,
