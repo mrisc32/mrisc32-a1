@@ -92,12 +92,16 @@ entity decode is
     o_mul_op : out T_MUL_OP;
     o_div_op : out T_DIV_OP;
     o_fpu_op : out T_FPU_OP;
+    o_sync_op : out T_SYNC_OP;
+    o_cctrl_op : out T_CCTRL_OP;
     o_alu_en : out std_logic;
     o_mem_en : out std_logic;
     o_sau_en : out std_logic;
     o_mul_en : out std_logic;
     o_div_en : out std_logic;
-    o_fpu_en : out std_logic
+    o_fpu_en : out std_logic;
+    o_sync_en : out std_logic;
+    o_cctrl_en : out std_logic
   );
 end decode;
 
@@ -164,6 +168,8 @@ architecture rtl of decode is
   signal s_is_mul_op : std_logic;
   signal s_is_div_op : std_logic;
   signal s_is_fpu_op : std_logic;
+  signal s_is_sync_op : std_logic;
+  signal s_is_cctrl_op : std_logic;
 
   signal s_is_ldi : std_logic;
   signal s_is_ldwpc : std_logic;
@@ -198,12 +204,16 @@ architecture rtl of decode is
   signal s_mul_op : T_MUL_OP;
   signal s_div_op : T_DIV_OP;
   signal s_fpu_op : T_FPU_OP;
+  signal s_sync_op : T_SYNC_OP;
+  signal s_cctrl_op : T_CCTRL_OP;
   signal s_alu_en : std_logic;
   signal s_mem_en : std_logic;
   signal s_sau_en : std_logic;
   signal s_mul_en : std_logic;
   signal s_div_en : std_logic;
   signal s_fpu_en : std_logic;
+  signal s_sync_en : std_logic;
+  signal s_cctrl_en : std_logic;
 
   -- Signals for handling discarding of the current operation (i.e. bubble).
   signal s_latched_cancel : std_logic;
@@ -221,6 +231,8 @@ architecture rtl of decode is
   signal s_mul_en_masked : std_logic;
   signal s_div_en_masked : std_logic;
   signal s_fpu_en_masked : std_logic;
+  signal s_sync_en_masked : std_logic;
+  signal s_cctrl_en_masked : std_logic;
   signal s_is_branch_masked : std_logic;
   signal s_branch_type_masked : T_BRANCH_TYPE;
 
@@ -412,6 +424,10 @@ begin
   s_is_fpu_op <= '1' when s_is_type_a = '1' and s_op_low(6 downto 5) = "10" and s_is_fdiv = '0' else s_is_type_b_fpu;
   s_is_sau_op <= '1' when s_is_type_a = '1' and s_op_low(6 downto 4) = "110" else '0';
 
+  -- SYNC or CCTRL?
+  s_is_sync_op <= '1' when s_is_type_b = '1' and s_op_low(1 downto 0) = "10" and i_instr(14 downto 9) = "000000" else '0';
+  s_is_cctrl_op <= '1' when s_is_type_b = '1' and s_op_low(1 downto 0) = "10" and i_instr(14 downto 9) = "000001" else '0';
+
   -- Determine vector mode.
   s_vector_mode(1) <= i_instr(15) and not (s_is_type_d or s_is_type_e);
   s_vector_mode(0) <= i_instr(14) and s_is_type_a;
@@ -587,6 +603,8 @@ begin
   s_mul_en <= s_is_mul_op;
   s_fpu_en <= s_is_fpu_op;
   s_sau_en <= s_is_sau_op;
+  s_sync_en <= s_is_sync_op;
+  s_cctrl_en <= s_is_cctrl_op;
 
   -- Select ALU operation.
   s_alu_op <=
@@ -634,6 +652,12 @@ begin
   -- Map the low order bits of the low order opcode directly to the saturating arithmetic unit.
   s_sau_op <= s_op_low(C_SAU_OP_SIZE-1 downto 0);
 
+  -- Select SYNC operation (there is currently only one).
+  s_sync_op <= C_SYNC_SYNC;
+
+  -- Select CCTRL operation (there is currently only one).
+  s_cctrl_op <= C_CCTRL_CCTRL;
+
   -- Are we missing any fwd operation that has not yet been produced by the pipeline?
   s_missing_fwd_operand <= s_is_vector_op and i_vl_fwd_use_value and not i_vl_fwd_value_ready;
 
@@ -654,6 +678,8 @@ begin
   s_mul_en_masked <= s_mul_en and not s_bubble;
   s_div_en_masked <= s_div_en and not s_bubble;
   s_fpu_en_masked <= s_fpu_en and not s_bubble;
+  s_sync_en_masked <= s_sync_en and not s_bubble;
+  s_cctrl_en_masked <= s_cctrl_en and not s_bubble;
   s_is_branch_masked <= s_is_branch and not s_bubble;
   s_branch_type_masked <= s_branch_type when s_bubble = '0' else C_BRANCH_NONE;
 

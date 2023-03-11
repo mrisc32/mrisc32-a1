@@ -37,6 +37,7 @@ entity fetch is
     i_rst : in std_logic;
     i_stall : in std_logic;
     i_cancel : in std_logic;
+    i_invalidate_branch_predictor : in std_logic;
 
     -- Results from the branch/PC correction unit in the EX stage (async).
     i_pccorr_source : in std_logic_vector(C_WORD_SIZE-1 downto 0);
@@ -101,7 +102,7 @@ begin
         -- Control signals.
         i_clk => i_clk,
         i_rst => i_rst,
-        i_invalidate => '0',
+        i_invalidate => i_invalidate_branch_predictor,
         i_cancel_speculation => i_cancel,
 
         -- Buffer lookup (sync).

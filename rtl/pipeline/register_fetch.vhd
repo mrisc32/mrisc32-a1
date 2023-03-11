@@ -82,12 +82,16 @@ entity register_fetch is
     i_mul_op : in T_MUL_OP;
     i_div_op : in T_DIV_OP;
     i_fpu_op : in T_FPU_OP;
+    i_sync_op : in T_SYNC_OP;
+    i_cctrl_op : in T_CCTRL_OP;
     i_alu_en : in std_logic;
     i_mem_en : in std_logic;
     i_sau_en : in std_logic;
     i_mul_en : in std_logic;
     i_div_en : in std_logic;
     i_fpu_en : in std_logic;
+    i_sync_en : in std_logic;
+    i_cctrl_en : in std_logic;
 
     -- Information to the operand forwarding logic (async).
     o_src_reg_a : out T_SRC_REG;
@@ -137,12 +141,16 @@ entity register_fetch is
     o_mul_op : out T_MUL_OP;
     o_div_op : out T_DIV_OP;
     o_fpu_op : out T_FPU_OP;
+    o_sync_op : out T_SYNC_OP;
+    o_cctrl_op : out T_CCTRL_OP;
     o_alu_en : out std_logic;
     o_mem_en : out std_logic;
     o_sau_en : out std_logic;
     o_mul_en : out std_logic;
     o_div_en : out std_logic;
     o_fpu_en : out std_logic;
+    o_sync_en : out std_logic;
+    o_cctrl_en : out std_logic;
 
     -- Debug trace interface.
     o_debug_trace : out T_DEBUG_TRACE
@@ -185,6 +193,8 @@ architecture rtl of register_fetch is
   signal s_mul_en_masked : std_logic;
   signal s_div_en_masked : std_logic;
   signal s_fpu_en_masked : std_logic;
+  signal s_sync_en_masked : std_logic;
+  signal s_cctrl_en_masked : std_logic;
   signal s_branch_is_branch_masked : std_logic;
   signal s_branch_is_unconditional_masked : std_logic;
   signal s_branch_type_masked : T_BRANCH_TYPE;
@@ -324,6 +334,8 @@ begin
   s_mul_en_masked <= i_mul_en and not s_bubble;
   s_div_en_masked <= i_div_en and not s_bubble;
   s_fpu_en_masked <= i_fpu_en and not s_bubble;
+  s_sync_en_masked <= i_sync_en and not s_bubble;
+  s_cctrl_en_masked <= i_cctrl_en and not s_bubble;
   s_branch_is_branch_masked <= i_branch_is_branch and not s_bubble;
   s_branch_is_unconditional_masked <= i_branch_is_unconditional and not s_bubble;
   s_branch_type_masked <= i_branch_type when s_bubble = '0' else C_BRANCH_NONE;
@@ -350,12 +362,16 @@ begin
       o_mul_op <= (others => '0');
       o_div_op <= (others => '0');
       o_fpu_op <= (others => '0');
+      o_sync_op <= (others => '0');
+      o_cctrl_op <= (others => '0');
       o_alu_en <= '0';
       o_mem_en <= '0';
       o_sau_en <= '0';
       o_mul_en <= '0';
       o_div_en <= '0';
       o_fpu_en <= '0';
+      o_sync_en <= '0';
+      o_cctrl_en <= '0';
       o_bubble <= '1';
     elsif rising_edge(i_clk) then
       if i_stall = '0' then
@@ -374,12 +390,16 @@ begin
         o_mul_op <= i_mul_op;
         o_div_op <= i_div_op;
         o_fpu_op <= i_fpu_op;
+        o_sync_op <= i_sync_op;
+        o_cctrl_op <= i_cctrl_op;
         o_alu_en <= s_alu_en_masked;
         o_mem_en <= s_mem_en_masked;
         o_sau_en <= s_sau_en_masked;
         o_mul_en <= s_mul_en_masked;
         o_div_en <= s_div_en_masked;
         o_fpu_en <= s_fpu_en_masked;
+        o_sync_en <= s_sync_en_masked;
+        o_cctrl_en <= s_cctrl_en_masked;
         o_bubble <= s_bubble;
       end if;
     end if;

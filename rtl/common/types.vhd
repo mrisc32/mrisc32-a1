@@ -226,6 +226,18 @@ package types is
   constant C_MEM_OP_STORE16 : T_MEM_OP := "1010";
   constant C_MEM_OP_STORE32 : T_MEM_OP := "1011";
 
+  -- SYNC operations.
+  constant C_SYNC_OP_SIZE : integer := 1;
+  subtype T_SYNC_OP is std_logic_vector(C_SYNC_OP_SIZE-1 downto 0);
+
+  constant C_SYNC_SYNC : T_SYNC_OP := "0";
+
+  -- Cache control operations.
+  constant C_CCTRL_OP_SIZE : integer := 1;
+  subtype T_CCTRL_OP is std_logic_vector(C_CCTRL_OP_SIZE-1 downto 0);
+
+  constant C_CCTRL_CCTRL : T_CCTRL_OP := "0";
+
   ------------------------------------------------------------------------------------------------
   -- Floating point configurations.
   ------------------------------------------------------------------------------------------------

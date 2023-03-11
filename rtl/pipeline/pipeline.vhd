@@ -102,12 +102,16 @@ architecture rtl of pipeline is
   signal s_id_mul_op : T_MUL_OP;
   signal s_id_div_op : T_DIV_OP;
   signal s_id_fpu_op : T_FPU_OP;
+  signal s_id_sync_op : T_SYNC_OP;
+  signal s_id_cctrl_op : T_CCTRL_OP;
   signal s_id_alu_en : std_logic;
   signal s_id_mem_en : std_logic;
   signal s_id_sau_en : std_logic;
   signal s_id_mul_en : std_logic;
   signal s_id_div_en : std_logic;
   signal s_id_fpu_en : std_logic;
+  signal s_id_sync_en : std_logic;
+  signal s_id_cctrl_en : std_logic;
 
   -- From REG.
   signal s_rf_stall : std_logic;
@@ -144,16 +148,21 @@ architecture rtl of pipeline is
   signal s_rf_mul_op : T_MUL_OP;
   signal s_rf_div_op : T_DIV_OP;
   signal s_rf_fpu_op : T_FPU_OP;
+  signal s_rf_sync_op : T_SYNC_OP;
+  signal s_rf_cctrl_op : T_CCTRL_OP;
   signal s_rf_alu_en : std_logic;
   signal s_rf_mem_en : std_logic;
   signal s_rf_sau_en : std_logic;
   signal s_rf_mul_en : std_logic;
   signal s_rf_div_en : std_logic;
   signal s_rf_fpu_en : std_logic;
+  signal s_rf_sync_en : std_logic;
+  signal s_rf_cctrl_en : std_logic;
 
   -- From EX1/EX2/EX3/EX4.
   signal s_ex_stall : std_logic;
   signal s_invalidate_icache : std_logic;
+  signal s_invalidate_branch_predictor : std_logic;
 
   -- From EX1.
   signal s_ex1_pccorr_target : std_logic_vector(C_WORD_SIZE-1 downto 0);
@@ -240,6 +249,7 @@ begin
       i_rst => i_rst,
       i_stall => s_stall_if,
       i_cancel => s_cancel_speculative_instructions,
+      i_invalidate_branch_predictor => s_invalidate_branch_predictor,
 
       -- Results from the branch/PC correction unit in the EX stage (async).
       i_pccorr_source => s_ex1_pccorr_source,
@@ -331,12 +341,16 @@ begin
       o_mul_op => s_id_mul_op,
       o_div_op => s_id_div_op,
       o_fpu_op => s_id_fpu_op,
+      o_sync_op => s_id_sync_op,
+      o_cctrl_op => s_id_cctrl_op,
       o_alu_en => s_id_alu_en,
       o_mem_en => s_id_mem_en,
       o_sau_en => s_id_sau_en,
       o_mul_en => s_id_mul_en,
       o_div_en => s_id_div_en,
-      o_fpu_en => s_id_fpu_en
+      o_fpu_en => s_id_fpu_en,
+      o_sync_en => s_id_sync_en,
+      o_cctrl_en => s_id_cctrl_en
     );
 
 
@@ -394,12 +408,16 @@ begin
       i_mul_op => s_id_mul_op,
       i_div_op => s_id_div_op,
       i_fpu_op => s_id_fpu_op,
+      i_sync_op => s_id_sync_op,
+      i_cctrl_op => s_id_cctrl_op,
       i_alu_en => s_id_alu_en,
       i_mem_en => s_id_mem_en,
       i_sau_en => s_id_sau_en,
       i_mul_en => s_id_mul_en,
       i_div_en => s_id_div_en,
       i_fpu_en => s_id_fpu_en,
+      i_sync_en => s_id_sync_en,
+      i_cctrl_en => s_id_cctrl_en,
 
       -- Information to the operand forwarding logic (async).
       o_src_reg_a => s_rf_src_reg_a,
@@ -449,12 +467,16 @@ begin
       o_mul_op => s_rf_mul_op,
       o_div_op => s_rf_div_op,
       o_fpu_op => s_rf_fpu_op,
+      o_sync_op => s_rf_sync_op,
+      o_cctrl_op => s_rf_cctrl_op,
       o_alu_en => s_rf_alu_en,
       o_mem_en => s_rf_mem_en,
       o_sau_en => s_rf_sau_en,
       o_mul_en => s_rf_mul_en,
       o_div_en => s_rf_div_en,
       o_fpu_en => s_rf_fpu_en,
+      o_sync_en => s_rf_sync_en,
+      o_cctrl_en => s_rf_cctrl_en,
 
       -- Debug trace interface.
       o_debug_trace => o_debug_trace
@@ -474,6 +496,7 @@ begin
 
       o_stall => s_ex_stall,
       o_invalidate_icache => s_invalidate_icache,
+      o_invalidate_branch_predictor => s_invalidate_branch_predictor,
 
       -- PC signal from ID (sync).
       i_id_pc => s_id_pc,
@@ -494,12 +517,16 @@ begin
       i_mul_op => s_rf_mul_op,
       i_div_op => s_rf_div_op,
       i_fpu_op => s_rf_fpu_op,
+      i_sync_op => s_rf_sync_op,
+      i_cctrl_op => s_rf_cctrl_op,
       i_alu_en => s_rf_alu_en,
       i_mem_en => s_rf_mem_en,
       i_sau_en => s_rf_sau_en,
       i_mul_en => s_rf_mul_en,
       i_div_en => s_rf_div_en,
       i_fpu_en => s_rf_fpu_en,
+      i_sync_en => s_rf_sync_en,
+      i_cctrl_en => s_rf_cctrl_en,
 
       -- Branch results from the RF stage (sync).
       i_branch_is_branch => s_rf_branch_is_branch,

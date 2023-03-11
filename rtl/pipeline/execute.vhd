@@ -37,6 +37,7 @@ entity execute is
     i_bubble : in std_logic;
     o_stall : out std_logic;
     o_invalidate_icache : out std_logic;
+    o_invalidate_branch_predictor : out std_logic;
 
     -- PC signal from ID (sync).
     i_id_pc : in std_logic_vector(C_WORD_SIZE-1 downto 0);
@@ -57,12 +58,16 @@ entity execute is
     i_mul_op : in T_MUL_OP;
     i_div_op : in T_DIV_OP;
     i_fpu_op : in T_FPU_OP;
+    i_sync_op : in T_SYNC_OP;
+    i_cctrl_op : in T_CCTRL_OP;
     i_alu_en : in std_logic;
     i_sau_en : in std_logic;
     i_mem_en : in std_logic;
     i_mul_en : in std_logic;
     i_div_en : in std_logic;
     i_fpu_en : in std_logic;
+    i_sync_en : in std_logic;
+    i_cctrl_en : in std_logic;
 
     -- Branch signals from RF (sync).
     i_branch_is_branch : in std_logic;
@@ -122,6 +127,9 @@ end execute;
 architecture rtl of execute is
   signal s_alu_result : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_agu_result : std_logic_vector(C_WORD_SIZE-1 downto 0);
+  signal s_sync_done : std_logic;
+  signal s_sync_result : std_logic_vector(C_WORD_SIZE-1 downto 0);
+  signal s_cctrl_result : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_agu_address_is_result : std_logic;
   signal s_mem_result : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_mem_result_ready : std_logic;
@@ -424,7 +432,7 @@ begin
 
 
   --------------------------------------------------------------------------------------------------
-  -- EX1: ALU, FPU (single cycle operations), AGU.
+  -- EX1: ALU, FPU (single cycle operations), AGU, SYNC, CCTRL.
   --------------------------------------------------------------------------------------------------
 
   -- Instantiate the ALU (arithmetic logic unit).
@@ -461,11 +469,58 @@ begin
   s_agu_address_is_result <= i_mem_en when i_mem_op = C_MEM_OP_LDEA else '0';
   s_ex1_next_mem_enable <= i_mem_en and not s_agu_address_is_result;
 
+  -- SYNC.
+  -- TODO(m): Implement me!
+  s_sync_result <= (others => '0');
+  s_sync_done <= i_sync_en;
+
+  -- CCTRL.
+  process(i_rst, i_clk)
+  begin
+    if i_rst = '1' then
+      o_invalidate_icache <= '0';
+      o_invalidate_branch_predictor <= '0';
+    elsif rising_edge(i_clk) then
+      -- Default values when there is no CCTRL operation.
+      o_invalidate_icache <= '0';
+      o_invalidate_branch_predictor <= '0';
+
+      if i_cctrl_en = '1' and i_cctrl_op = C_CCTRL_CCTRL then
+        if i_src_a = 32x"000" then
+          -- Invalidate entire icache.
+          o_invalidate_icache <= '1';
+        elsif i_src_a = 32x"001" then
+          -- Invalidate entire dcache.
+        elsif i_src_a = 32x"002" then
+          -- Invalidate entire branch predictor.
+          o_invalidate_branch_predictor <= '1';
+        elsif i_src_a = 32x"100" then
+          -- Invalidate icache cache line given by address i_src_c.
+        elsif i_src_a = 32x"101" then
+          -- Invalidate dcache cache line given by address i_src_c.
+        elsif i_src_a = 32x"201" then
+          -- Flush entire dcache.
+        elsif i_src_a = 32x"301" then
+          -- Flush dcache cache line given by address i_src_c.
+        end if;
+      end if;
+    end if;
+  end process;
+
+  -- The result of a CCTRL operation is always the input.
+  s_cctrl_result <= i_src_c;
+
   -- Select the result from the EX1 stage.
   s_ex1_next_result <= s_fpu_f1_result when s_fpu_f1_result_ready = '1' else
                        s_agu_result when s_agu_address_is_result = '1' else
+                       s_sync_result when i_sync_en = '1' else
+                       s_cctrl_result when i_cctrl_en = '1' else
                        s_alu_result;
-  s_ex1_next_result_ready <= s_fpu_f1_result_ready or s_agu_address_is_result or i_alu_en;
+  s_ex1_next_result_ready <= s_fpu_f1_result_ready or
+                             s_agu_address_is_result or
+                             s_sync_done or
+                             i_cctrl_en or
+                             i_alu_en;
 
   -- Outputs to the EX2 stage (sync).
   process(i_clk, i_rst)
@@ -623,7 +678,4 @@ begin
   s_stall_mem <= s_div_stall;
   s_stall_div <= s_mem_stall;
   o_stall <= s_stall_ex;
-
-  -- Cache control.
-  o_invalidate_icache <= '0';  -- TODO(m): Implement me!
 end rtl;
