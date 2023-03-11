@@ -37,7 +37,9 @@ entity execute is
     i_bubble : in std_logic;
     o_stall : out std_logic;
     o_invalidate_icache : out std_logic;
+    o_invalidate_dcache : out std_logic;
     o_invalidate_branch_predictor : out std_logic;
+    o_flush_dcache : out std_logic;
 
     -- PC signal from ID (sync).
     i_id_pc : in std_logic_vector(C_WORD_SIZE-1 downto 0);
@@ -127,7 +129,6 @@ end execute;
 architecture rtl of execute is
   signal s_alu_result : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_agu_result : std_logic_vector(C_WORD_SIZE-1 downto 0);
-  signal s_sync_done : std_logic;
   signal s_sync_result : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_cctrl_result : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_agu_address_is_result : std_logic;
@@ -150,6 +151,11 @@ architecture rtl of execute is
   signal s_fpu_f3_result_ready : std_logic;
   signal s_fpu_f4_result : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_fpu_f4_result_ready : std_logic;
+
+  -- SYNC signals.
+  signal s_sync_done : std_logic;
+  signal s_sync_stall : std_logic;
+  signal s_sync_cancel_pending_instructions : std_logic;
 
   -- Should the EX pipeline be stalled?
   signal s_stall_ex : std_logic;
@@ -470,45 +476,34 @@ begin
   s_ex1_next_mem_enable <= i_mem_en and not s_agu_address_is_result;
 
   -- SYNC.
-  -- TODO(m): Implement me!
-  s_sync_result <= (others => '0');
-  s_sync_done <= i_sync_en;
+  -- TODO(m): Forward cancel signal to the pipeline.
+  sync_0: entity work.sync
+    port map (
+      i_clk => i_clk,
+      i_rst => i_rst,
+      i_en => i_sync_en,
+      i_op => i_sync_op,
+      o_stall => s_sync_stall,
+      o_done => s_sync_done,
+      o_cancel_pending_instructions => s_sync_cancel_pending_instructions,
+      o_result => s_sync_result
+    );
 
   -- CCTRL.
-  process(i_rst, i_clk)
-  begin
-    if i_rst = '1' then
-      o_invalidate_icache <= '0';
-      o_invalidate_branch_predictor <= '0';
-    elsif rising_edge(i_clk) then
-      -- Default values when there is no CCTRL operation.
-      o_invalidate_icache <= '0';
-      o_invalidate_branch_predictor <= '0';
-
-      if i_cctrl_en = '1' and i_cctrl_op = C_CCTRL_CCTRL then
-        if i_src_a = 32x"000" then
-          -- Invalidate entire icache.
-          o_invalidate_icache <= '1';
-        elsif i_src_a = 32x"001" then
-          -- Invalidate entire dcache.
-        elsif i_src_a = 32x"002" then
-          -- Invalidate entire branch predictor.
-          o_invalidate_branch_predictor <= '1';
-        elsif i_src_a = 32x"100" then
-          -- Invalidate icache cache line given by address i_src_c.
-        elsif i_src_a = 32x"101" then
-          -- Invalidate dcache cache line given by address i_src_c.
-        elsif i_src_a = 32x"201" then
-          -- Flush entire dcache.
-        elsif i_src_a = 32x"301" then
-          -- Flush dcache cache line given by address i_src_c.
-        end if;
-      end if;
-    end if;
-  end process;
-
-  -- The result of a CCTRL operation is always the input.
-  s_cctrl_result <= i_src_c;
+  cctrl_0: entity work.cctrl
+    port map (
+      i_clk => i_clk,
+      i_rst => i_rst,
+      i_en => i_cctrl_en,
+      i_op => i_cctrl_op,
+      i_src_a => i_src_a,
+      i_src_c => i_src_c,
+      o_invalidate_icache => o_invalidate_icache,
+      o_invalidate_dcache => o_invalidate_dcache,
+      o_invalidate_branch_predictor => o_invalidate_branch_predictor,
+      o_flush_dcache => o_flush_dcache,
+      o_result => s_cctrl_result
+    );
 
   -- Select the result from the EX1 stage.
   s_ex1_next_result <= s_fpu_f1_result when s_fpu_f1_result_ready = '1' else
@@ -677,5 +672,5 @@ begin
   s_stall_ex <= s_mem_stall or s_div_stall;
   s_stall_mem <= s_div_stall;
   s_stall_div <= s_mem_stall;
-  o_stall <= s_stall_ex;
+  o_stall <= s_stall_ex or s_sync_stall;
 end rtl;
