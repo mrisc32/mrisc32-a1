@@ -175,6 +175,7 @@ architecture rtl of decode is
 
   signal s_is_type_b_alu : std_logic;
   signal s_is_type_b_fpu : std_logic;
+  signal s_is_type_b_destructive : std_logic;
   signal s_func : std_logic_vector(5 downto 0);
 
   -- VL register signals.
@@ -380,6 +381,10 @@ begin
   s_is_type_b_alu <= '1' when (s_is_type_b = '1' and s_op_low(1 downto 0) = "00") else '0';
   s_is_type_b_fpu <= '1' when (s_is_type_b = '1' and s_op_low(1 downto 0) = "01") else '0';
 
+  -- Is this an two-operand instruction where one source operand is also the destination operand?
+  -- I.e. the form is C <- OP(C, A), which is the case for format B insns with OP="111111-".
+  s_is_type_b_destructive <= '1' when (s_is_type_b = '1' and s_op_low(1) = '1') else '0';
+
   -- Is this an operation with three source operands?
   -- The integer "3 src group" is: MADD, ?, SEL, IBF
   s_is_int_three_src_group <= '1' when (s_is_type_a = '1' and s_op_low(6 downto 2) = "01011")
@@ -426,7 +431,8 @@ begin
   -- What source registers are required for this operation?
   s_reg_a_required <= s_is_type_a or s_is_type_b or s_is_type_c;
   s_reg_b_required <= s_is_type_a;
-  s_reg_c_required <= (s_is_three_src_op or s_is_branch) and not s_src_c_is_pc;
+  s_reg_c_required <= (s_is_three_src_op or s_is_type_b_destructive or s_is_branch) and
+                      (not s_src_c_is_pc);
 
   -- Is this a stride offset or regular offset memory addressing mode instruction?
   s_address_offset_is_stride <= s_is_vector_stride_mem_op;
