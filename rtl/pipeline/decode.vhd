@@ -597,7 +597,7 @@ begin
   s_dst_reg.is_vector <= s_reg_c_is_vector and not s_is_mem_store;
 
   -- What pipeline units should be enabled?
-  s_alu_en <= not (s_is_mem_op or s_is_div_op or s_is_mul_op or s_is_fpu_op or s_is_sau_op);
+  s_alu_en <= not (s_is_mem_op or s_is_div_op or s_is_mul_op or s_is_fpu_op or s_is_sau_op or s_is_sync_op or s_is_cctrl_op);
   s_mem_en <= s_is_mem_op;
   s_div_en <= s_is_div_op;
   s_mul_en <= s_is_mul_op;
