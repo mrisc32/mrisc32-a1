@@ -31,6 +31,7 @@ architecture behavioral of fetch_tb is
   signal s_rst : std_logic;
   signal s_stall : std_logic;
   signal s_cancel : std_logic;
+  signal s_invalidate_branch_predictor : std_logic;
 
   signal s_pccorr_source : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_pccorr_target : std_logic_vector(C_WORD_SIZE-1 downto 0);
@@ -57,6 +58,7 @@ begin
       i_rst => s_rst,
       i_stall => s_stall,
       i_cancel => s_cancel,
+      i_invalidate_branch_predictor => s_invalidate_branch_predictor,
 
       i_pccorr_source => s_pccorr_source,
       i_pccorr_target => s_pccorr_target,
@@ -143,6 +145,7 @@ begin
     -- Clear all input signals.
     s_stall <= '0';
     s_cancel <= '0';
+    s_invalidate_branch_predictor <= '0';
     s_pccorr_source <= (others => '0');
     s_pccorr_target <= (others => '0');
     s_pccorr_branch_type <= C_BRANCH_NONE;
