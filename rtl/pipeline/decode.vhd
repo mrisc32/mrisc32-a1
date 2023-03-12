@@ -179,7 +179,6 @@ architecture rtl of decode is
 
   signal s_is_type_c_load_store : std_logic;
 
-  signal s_is_type_b_alu : std_logic;
   signal s_is_type_b_fpu : std_logic;
   signal s_is_type_b_destructive : std_logic;
   signal s_func : std_logic_vector(5 downto 0);
@@ -390,7 +389,6 @@ begin
 
   -- Is this a two-operand operation?
   s_func <= i_instr(14 downto 9) when s_is_type_b = '1' else (others => '0');
-  s_is_type_b_alu <= '1' when (s_is_type_b = '1' and s_op_low(1 downto 0) = "00") else '0';
   s_is_type_b_fpu <= '1' when (s_is_type_b = '1' and s_op_low(1 downto 0) = "01") else '0';
 
   -- Is this an two-operand instruction where one source operand is also the destination operand?
@@ -618,14 +616,13 @@ begin
       C_ALU_OR when s_alu_en = '0' or (s_is_branch and not s_is_link_branch) = '1' else
 
       -- We map the two-operand FUNC ID into the opcode for such instructions.
-      -- Note: This is a hack. We should really send the entire FUNC code to the ALU.
-      "001" & s_func(2 downto 0) when s_is_type_b_alu = '1' else
+      "1" & s_op_low(1) & s_func when s_is_type_b = '1' else
 
-      -- Map the low order bits of the low order opcode directly to the ALU.
-      s_op_low(C_ALU_OP_SIZE-1 downto 0) when s_is_type_a = '1' else
+      -- Map the low order opcode directly to the ALU.
+      "0" & s_op_low when s_is_type_a = '1' else
 
       -- Map the high order opcode directly to the ALU.
-      s_op_high;
+      "00" & s_op_high;
 
   -- Select division operation.
   -- Map the low order bits of the opcode directly to the division unit, except for
