@@ -59,6 +59,7 @@ architecture rtl of alu is
   signal s_clz_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_popcnt_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_crc32c_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
+  signal s_crc32_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
   signal s_ldi_res : std_logic_vector(C_WORD_SIZE-1 downto 0);
 
   -- Signals for XCHGSR.
@@ -182,6 +183,15 @@ begin
       o_result => s_crc32c_res
     );
 
+  -- C_ALU_CRC32
+  AluCRC32: entity work.crc32
+    port map (
+      i_crc => i_src_c,
+      i_data => i_src_a,
+      i_packed_mode => i_packed_mode,
+      o_result => s_crc32_res
+    );
+
   ------------------------------------------------------------------------------------------------
   -- Arithmetic operations
   ------------------------------------------------------------------------------------------------
@@ -276,6 +286,7 @@ begin
         s_clz_res when C_ALU_CLZ,
         s_popcnt_res when C_ALU_POPCNT,
         s_crc32c_res when C_ALU_CRC32C,
+        s_crc32_res when C_ALU_CRC32,
         s_ldi_res when C_ALU_LDI,
         (others => '-') when others;
 

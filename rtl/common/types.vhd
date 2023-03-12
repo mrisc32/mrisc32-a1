@@ -141,6 +141,7 @@ package types is
   constant C_ALU_POPCNT : T_ALU_OP := "10000010";  -- Two-operand (op=0x7c, func=0x02)
 
   constant C_ALU_CRC32C : T_ALU_OP := "11000010";  -- Two-operand (op=0x7e, func=0x02)
+  constant C_ALU_CRC32  : T_ALU_OP := "11000011";  -- Two-operand (op=0x7e, func=0x03)
 
   -- DIV operations.
   constant C_DIV_OP_SIZE : integer := 3;
