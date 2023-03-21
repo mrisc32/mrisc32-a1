@@ -168,6 +168,7 @@ architecture rtl of decode is
   signal s_is_mul_op : std_logic;
   signal s_is_div_op : std_logic;
   signal s_is_fpu_op : std_logic;
+  signal s_is_wait_op : std_logic;
   signal s_is_sync_op : std_logic;
   signal s_is_cctrl_op : std_logic;
 
@@ -422,9 +423,10 @@ begin
   s_is_fpu_op <= '1' when s_is_type_a = '1' and s_op_low(6 downto 5) = "10" and s_is_fdiv = '0' else s_is_type_b_fpu;
   s_is_sau_op <= '1' when s_is_type_a = '1' and s_op_low(6 downto 4) = "110" else '0';
 
-  -- SYNC or CCTRL?
-  s_is_sync_op <= '1' when s_is_type_b = '1' and s_op_low(1 downto 0) = "10" and i_instr(14 downto 9) = "000000" else '0';
-  s_is_cctrl_op <= '1' when s_is_type_b = '1' and s_op_low(1 downto 0) = "10" and i_instr(14 downto 9) = "000001" else '0';
+  -- WAIT, SYNC or CCTRL?
+  s_is_wait_op <= '1' when s_is_type_b = '1' and s_op_low(1 downto 0) = "10" and i_instr(14 downto 9) = "000000" else '0';
+  s_is_sync_op <= '1' when s_is_type_b = '1' and s_op_low(1 downto 0) = "10" and i_instr(14 downto 9) = "000001" else '0';
+  s_is_cctrl_op <= '1' when s_is_type_b = '1' and s_op_low(1 downto 0) = "10" and i_instr(14 downto 9) = "000010" else '0';
 
   -- Determine vector mode.
   s_vector_mode(1) <= i_instr(15) and not (s_is_type_d or s_is_type_e);
@@ -595,12 +597,14 @@ begin
   s_dst_reg.is_vector <= s_reg_c_is_vector and not s_is_mem_store;
 
   -- What pipeline units should be enabled?
-  s_alu_en <= not (s_is_mem_op or s_is_div_op or s_is_mul_op or s_is_fpu_op or s_is_sau_op or s_is_sync_op or s_is_cctrl_op);
+  s_alu_en <= not (s_is_mem_op or s_is_div_op or s_is_mul_op or s_is_fpu_op or
+                   s_is_sau_op or s_is_wait_op or s_is_sync_op or s_is_cctrl_op);
   s_mem_en <= s_is_mem_op;
   s_div_en <= s_is_div_op;
   s_mul_en <= s_is_mul_op;
   s_fpu_en <= s_is_fpu_op;
   s_sau_en <= s_is_sau_op;
+  -- TODO(m): Implement WAIT (it's currently a NOP).
   s_sync_en <= s_is_sync_op;
   s_cctrl_en <= s_is_cctrl_op;
 
