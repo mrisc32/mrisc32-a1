@@ -738,6 +738,9 @@ begin
   -- Pipeline control logic.
   --------------------------------------------------------------------------------------------------
 
+  -- Cache invalidation signals.
+  o_invalidate_icache <= s_invalidate_icache;
+
   -- Determine if we need to cancel speculative instructions.
   s_cancel_speculative_instructions <= s_ex1_pccorr_adjust;
 

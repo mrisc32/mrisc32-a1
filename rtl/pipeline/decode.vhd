@@ -729,12 +729,16 @@ begin
       o_mul_op <= (others => '0');
       o_div_op <= (others => '0');
       o_fpu_op <= (others => '0');
+      o_sync_op <= (others => '0');
+      o_cctrl_op <= (others => '0');
       o_alu_en <= '0';
       o_mem_en <= '0';
       o_sau_en <= '0';
       o_mul_en <= '0';
       o_div_en <= '0';
       o_fpu_en <= '0';
+      o_sync_en <= '0';
+      o_cctrl_en <= '0';
       o_bubble <= '1';
     elsif rising_edge(i_clk) then
       if i_stall = '0' then
@@ -766,12 +770,16 @@ begin
         o_mul_op <= s_mul_op;
         o_div_op <= s_div_op;
         o_fpu_op <= s_fpu_op;
+        o_sync_op <= s_sync_op;
+        o_cctrl_op <= s_cctrl_op;
         o_alu_en <= s_alu_en_masked;
         o_mem_en <= s_mem_en_masked;
         o_sau_en <= s_sau_en_masked;
         o_mul_en <= s_mul_en_masked;
         o_div_en <= s_div_en_masked;
         o_fpu_en <= s_fpu_en_masked;
+        o_sync_en <= s_sync_en_masked;
+        o_cctrl_en <= s_cctrl_en_masked;
         o_bubble <= s_bubble;
       end if;
     end if;
