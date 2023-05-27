@@ -19,6 +19,7 @@
 
 library ieee;
 use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 use work.config.all;
 
 entity dcache is
@@ -57,12 +58,77 @@ entity dcache is
 end dcache;
 
 architecture rtl of dcache is
+  --------------------------------------------------------------------------------------------------
+  -- Cache memory configuration & signals.
+  --------------------------------------------------------------------------------------------------
+
+  constant C_LOG2_LINES : integer := 10;
+  constant C_LOG2_WORDS_PER_LINE : integer := 3;
+  constant C_LINES : integer := 2**C_LOG2_LINES;
+  constant C_WORDS_PER_LINE : integer := 2**C_LOG2_WORDS_PER_LINE;
+
+  constant C_TAG_WIDTH : integer := 1 + (30 - C_LOG2_LINES - C_LOG2_WORDS_PER_LINE);
+  constant C_TAG_ADDR_BITS : integer := C_LOG2_LINES;
+  constant C_MAX_TAG_ADDR : unsigned := to_unsigned((2 ** C_TAG_ADDR_BITS) - 1, C_TAG_ADDR_BITS);
+  constant C_DATA_ADDR_BITS : integer := C_LOG2_LINES + C_LOG2_WORDS_PER_LINE;
+
+  signal s_tagmem_wr_data : std_logic_vector(C_TAG_WIDTH-1 downto 0);
+  signal s_tagmem_wr_addr : std_logic_vector(C_TAG_ADDR_BITS-1 downto 0);
+  signal s_tagmem_wr_en : std_logic;
+  signal s_tagmem_rd_addr : std_logic_vector(C_TAG_ADDR_BITS-1 downto 0);
+  signal s_tagmem_rd_data : std_logic_vector(C_TAG_WIDTH-1 downto 0);
+
+  signal s_datamem_wr_data : std_logic_vector(C_WORD_SIZE-1 downto 0);
+  signal s_datamem_wr_addr : std_logic_vector(C_DATA_ADDR_BITS-1 downto 0);
+  signal s_datamem_wr_en : std_logic;
+  signal s_datamem_rd_addr : std_logic_vector(C_DATA_ADDR_BITS-1 downto 0);
+  signal s_datamem_rd_data : std_logic_vector(C_WORD_SIZE-1 downto 0);
+
+  --------------------------------------------------------------------------------------------------
+  -- Cache lookup signals.
+  --------------------------------------------------------------------------------------------------
+
+  signal s_stall_dc1 : std_logic;
+  signal s_dc1_data_req : std_logic;
+  signal s_dc1_data_adr : std_logic_vector(C_WORD_SIZE-1 downto 2);
+  signal s_dc1_data_dat : std_logic_vector(C_WORD_SIZE-1 downto 0);
+  signal s_dc1_data_we : std_logic;
+  signal s_dc1_data_sel : std_logic_vector(C_WORD_SIZE/8-1 downto 0);
+  signal s_dc1_cacheable : std_logic;
+
+  --------------------------------------------------------------------------------------------------
+  -- Cache state machine.
+  --------------------------------------------------------------------------------------------------
+
+  -- State machine states.
+  type T_DC_STATE is (
+    RESET,
+    INVALIDATE,
+    FLUSH,
+    READY,
+    WAIT_FOR_MEM_READY,
+    UPDATE_CACHE_LINE,
+    WAIT_FOR_UNCACHED_READ
+  );
+
+  signal s_state : T_DC_STATE;
+  signal s_next_state : T_DC_STATE;
+
+  signal s_invalidate_requested : std_logic;
+  signal s_invalidate_addr : unsigned(C_TAG_ADDR_BITS-1 downto 0);
+  signal s_next_invalidate_addr : unsigned(C_TAG_ADDR_BITS-1 downto 0);
+  signal s_flush_requested : std_logic;
+
+  signal s_word_idx : std_logic_vector(C_LOG2_WORDS_PER_LINE-1 downto 0);
+  signal s_next_word_idx : std_logic_vector(C_LOG2_WORDS_PER_LINE-1 downto 0);
+  signal s_last_word_idx : std_logic_vector(C_LOG2_WORDS_PER_LINE-1 downto 0);
+
+  --------------------------------------------------------------------------------------------------
+  -- Pending requests FIFO configuration & signals.
+  --------------------------------------------------------------------------------------------------
+
   constant C_REQ_FIFO_DEPTH : integer := 32;
   constant C_REQ_FIFO_WIDTH : integer := 1;
-
-  signal s_start_req : std_logic;
-  signal s_ignore_ack : std_logic;
-  signal s_immediate_ack : std_logic;
 
   signal s_fifo_wr_en : std_logic;
   signal s_fifo_wr_data : std_logic_vector(C_REQ_FIFO_WIDTH-1 downto 0);
@@ -70,10 +136,325 @@ architecture rtl of dcache is
   signal s_fifo_rd_en : std_logic;
   signal s_fifo_rd_data : std_logic_vector(C_REQ_FIFO_WIDTH-1 downto 0);
   signal s_fifo_empty : std_logic;
-begin
-  -- TODO(m): Implement a proper write-through cache to speed up read operations.
 
-  -- We use a FIFO to keep track of ongoing requests.
+  --------------------------------------------------------------------------------------------------
+  -- Memory request signals.
+  --------------------------------------------------------------------------------------------------
+
+  signal s_mem_ready : std_logic;
+
+  signal s_req_en : std_logic;
+  signal s_req_adr : std_logic_vector(C_WORD_SIZE-1 downto 2);
+  signal s_req_dat : std_logic_vector(C_WORD_SIZE-1 downto 0);
+  signal s_req_we : std_logic;
+  signal s_req_sel : std_logic_vector(C_WORD_SIZE/8-1 downto 0);
+
+  signal s_resp_ack : std_logic;
+  signal s_resp_dat : std_logic_vector(C_WORD_SIZE-1 downto 0);
+
+  signal s_start_req : std_logic;
+  signal s_ignore_ack : std_logic;
+  signal s_immediate_ack : std_logic;
+
+  --------------------------------------------------------------------------------------------------
+  -- Helper functions.
+  --------------------------------------------------------------------------------------------------
+
+  function is_cacheable(addr : std_logic_vector) return std_logic is
+  begin
+    -- We hardcode addresses with the two most significant bits set as non-cacheable. Thus the
+    -- address range C0000000-FFFFFFFF can be used for memory mapped I/O and similar.
+    if addr(addr'left downto addr'left-1) = "11" then
+      return '0';
+    end if;
+
+    -- All other address ranges are cacheable.
+    return '1';
+  end function;
+
+  function make_valid_tag(addr : std_logic_vector) return std_logic_vector is
+  begin
+    return "1" &
+           addr(addr'left downto addr'left - (C_LOG2_LINES + C_LOG2_WORDS_PER_LINE) + 1);
+  end function;
+
+  function make_invalid_tag return std_logic_vector is
+  begin
+    return "0" &
+           std_logic_vector(to_unsigned(0, C_TAG_WIDTH-1));
+  end function;
+
+  function make_tagmem_addr(addr : std_logic_vector) return std_logic_vector is
+  begin
+    return addr(addr'right + (C_LOG2_LINES + C_LOG2_WORDS_PER_LINE) - 1 downto addr'right + C_LOG2_WORDS_PER_LINE);
+  end function;
+
+  function make_datamem_addr(addr : std_logic_vector) return std_logic_vector is
+  begin
+    return addr(addr'right + (C_LOG2_LINES + C_LOG2_WORDS_PER_LINE) - 1 downto addr'right);
+  end function;
+
+  function mix_words(sel : std_logic_vector; old_data : std_logic_vector; new_data : std_logic_vector) return std_logic_vector is
+    variable v_data : std_logic_vector(C_WORD_SIZE-1 downto 0);
+    variable v_idx : integer;
+  begin
+    for k in sel'range loop
+      v_idx := 8 * k;
+      if sel(k) = '1' then
+        v_data(v_idx+7 downto v_idx) := new_data(v_idx+7 downto v_idx);
+      else
+        v_data(v_idx+7 downto v_idx) := old_data(v_idx+7 downto v_idx);
+      end if;
+    end loop;
+    return v_data;
+  end function;
+begin
+  --------------------------------------------------------------------------------------------------
+  -- Cache memory instantiation.
+  --------------------------------------------------------------------------------------------------
+
+  -- Tag memory.
+  tag_ram_1: entity work.ram_dual_port
+    generic map (
+      WIDTH => C_TAG_WIDTH,
+      ADDR_BITS => C_TAG_ADDR_BITS,
+      PREFER_DISTRIBUTED => false
+    )
+    port map (
+      i_clk => i_clk,
+      i_write_data => s_tagmem_wr_data,
+      i_write_addr => s_tagmem_wr_addr,
+      i_we => s_tagmem_wr_en,
+      i_read_addr => s_tagmem_rd_addr,
+      o_read_data => s_tagmem_rd_data
+    );
+
+  -- Data memory.
+  data_ram_1: entity work.ram_dual_port
+    generic map (
+      WIDTH => C_WORD_SIZE,
+      ADDR_BITS => C_DATA_ADDR_BITS,
+      PREFER_DISTRIBUTED => false
+    )
+    port map (
+      i_clk => i_clk,
+      i_write_data => s_datamem_wr_data,
+      i_write_addr => s_datamem_wr_addr,
+      i_we => s_datamem_wr_en,
+      i_read_addr => s_datamem_rd_addr,
+      o_read_data => s_datamem_rd_data
+    );
+
+
+  --------------------------------------------------------------------------------------------------
+  -- Cache lookup (pipelined, stages: DC1, DC2).
+  --------------------------------------------------------------------------------------------------
+
+  -- DC1: Send a read request to the cache.
+  s_tagmem_rd_addr <= make_tagmem_addr(i_data_adr);
+  s_datamem_rd_addr <= make_datamem_addr(i_data_adr);
+
+  -- Outputs to the DC2 stage.
+  process(i_clk, i_rst)
+  begin
+    if i_rst = '1' then
+      s_dc1_data_req <= '0';
+      s_dc1_data_adr <= (others => '0');
+      s_dc1_data_dat <= (others => '0');
+      s_dc1_data_we <= '0';
+      s_dc1_data_sel <= (others => '0');
+      s_dc1_cacheable <= '0';
+    elsif rising_edge(i_clk) then
+      if s_stall_dc1 = '0' then
+        s_dc1_data_req <= i_data_req;
+        s_dc1_data_adr <= i_data_adr;
+        s_dc1_data_dat <= i_data_dat;
+        s_dc1_data_we <= i_data_we;
+        s_dc1_data_sel <= i_data_sel;
+        s_dc1_cacheable <= is_cacheable(i_data_adr);
+      end if;
+    end if;
+  end process;
+
+  -- Do we need to stall any new cache requests?
+  s_stall_dc1 <= '0' when s_next_state = READY else '1';
+
+
+  --------------------------------------------------------------------------------------------------
+  -- Cache line update state machine.
+  --------------------------------------------------------------------------------------------------
+
+  process(ALL)
+  begin
+    -- Default values. Optionally overridden in different states.
+    s_next_state <= s_state;
+    s_next_invalidate_addr <= (others => '-');
+    s_next_word_idx <= s_word_idx;
+    s_tagmem_wr_data <= (others => '-');
+    s_tagmem_wr_addr <= (others => '-');
+    s_tagmem_wr_en <= '0';
+    s_datamem_wr_data <= (others => '-');
+    s_datamem_wr_addr <= (others => '-');
+    s_datamem_wr_en <= '0';
+
+    case s_state is
+      when RESET =>
+        s_next_invalidate_addr <= (others => '0');
+        s_next_state <= INVALIDATE;
+
+      when INVALIDATE =>
+        s_next_invalidate_addr <= s_invalidate_addr + 1;
+        s_tagmem_wr_data <= make_invalid_tag;
+        s_tagmem_wr_addr <= std_logic_vector(s_invalidate_addr);
+        s_tagmem_wr_en <= '1';
+
+        if s_invalidate_addr = C_MAX_TAG_ADDR then
+          s_next_state <= READY;
+        end if;
+
+      when FLUSH =>
+        -- Since this is a write-through cache, we have nothing to do here.
+        s_next_state <= READY;
+
+      when READY =>
+        -- Start a potential memory request at the word index (within a cache line) that
+        -- corresponds to the requested address.
+        s_next_word_idx <= s_dc1_data_adr(C_LOG2_WORDS_PER_LINE + 2 - 1 downto 2);
+
+        -- TODO(m): Flush and Invalidate should be performed in the order of their requests.
+        if s_flush_requested = '1' then
+          s_next_state <= FLUSH;
+        elsif s_invalidate_requested = '1' then
+          s_next_invalidate_addr <= (others => '0');
+          s_next_state <= INVALIDATE;
+        elsif s_dc1_data_req = '1' then
+          -- Check if we had a cache hit or miss.
+          if s_tagmem_rd_data = make_valid_tag(s_dc1_data_adr) then
+            if s_dc1_data_we = '0' then
+              -- Cache read hit -> respond to request.
+              -- TODO(m): Implement me!
+              -- TODO(m): Bypass written data word from previous cycle IF it was a write hit to the
+              -- same address.
+            else
+              -- Cache write hit -> update cache entry.
+              s_datamem_wr_data <= mix_words(s_dc1_data_sel, s_datamem_rd_data, s_dc1_data_dat);
+              s_datamem_wr_addr <= make_datamem_addr(s_dc1_data_adr);
+              s_datamem_wr_en <= '1';
+
+              if s_mem_ready = '1' then
+                -- Initiate a single word write operation.
+                -- TODO(m): Implement me!
+              else
+                s_next_state <= WAIT_FOR_MEM_READY;
+              end if;
+            end if;
+          else
+            if s_mem_ready = '1' then
+              if s_dc1_data_we = '0' then
+                -- Cache read miss.
+                if s_dc1_cacheable = '1' then
+                  -- Initiate a full cache line read cycle.
+                  -- TODO(m): Implement me!
+                  s_next_state <= UPDATE_CACHE_LINE;
+                else
+                  -- Initiate a single word read operation (for uncachable memories).
+                  -- TODO(m): Implement me!
+                  s_next_state <= WAIT_FOR_UNCACHED_READ;
+                end if;
+              else
+                -- Cache write miss.
+                -- Initiate a single word write operation.
+                -- TODO(m): Implement me!
+              end if;
+            else
+              s_next_state <= WAIT_FOR_MEM_READY;
+            end if;
+          end if;
+        end if;
+
+      when WAIT_FOR_MEM_READY =>
+        if s_mem_ready = '1' then
+          if s_dc1_data_we = '0' then
+            if s_dc1_cacheable = '1' then
+              -- Initiate a full cache line read cycle.
+              -- TODO(m): Implement me!
+              s_next_state <= UPDATE_CACHE_LINE;
+            else
+              -- Initiate a single word read operation (for uncachable memories).
+              -- TODO(m): Implement me!
+              s_next_state <= WAIT_FOR_UNCACHED_READ;
+            end if;
+          else
+            -- Initiate a single word write operation.
+            -- TODO(m): Implement me!
+            s_next_state <= READY;
+          end if;
+        end if;
+
+      when UPDATE_CACHE_LINE =>
+        -- TODO(m): Implement me!
+        if s_mem_ready = '1' then
+          s_next_word_idx <= std_logic_vector(unsigned(s_word_idx) + 1);
+        end if;
+
+        -- Final word in the cache line?
+        if s_word_idx = s_last_word_idx then
+          s_next_state <= READY;
+        end if;
+
+      when WAIT_FOR_UNCACHED_READ =>
+        -- TODO(m): Implement me!
+        s_next_state <= READY;
+
+      when others =>
+        s_next_state <= RESET;
+    end case;
+  end process;
+
+  process(i_clk, i_rst)
+  begin
+    if i_rst = '1' then
+      s_invalidate_requested <= '0';
+      s_flush_requested <= '0';
+      s_invalidate_addr <= (others => '0');
+      s_word_idx <= (others => '0');
+      s_last_word_idx <= (others => '0');
+      s_state <= RESET;
+    elsif rising_edge(i_clk) then
+      -- Sticky remember invalidate requests.
+      if i_invalidate = '1' then
+        s_invalidate_requested <= '1';
+      elsif s_next_state = INVALIDATE then
+        s_invalidate_requested <= '0';
+      end if;
+
+      -- Sticky remember flush requests.
+      if i_flush = '1' then
+        s_flush_requested <= '1';
+      elsif s_next_state = FLUSH then
+        s_flush_requested <= '0';
+      end if;
+
+      -- Update the invalidate line address.
+      s_invalidate_addr <= s_next_invalidate_addr;
+
+      -- Update the word-within-cache-line counter.
+      s_word_idx <= s_next_word_idx;
+      if s_state = READY then
+        s_last_word_idx <= std_logic_vector(signed(s_next_word_idx) - 1);
+      end if;
+
+      -- Move to the next requested state.
+      s_state <= s_next_state;
+    end if;
+  end process;
+
+
+  --------------------------------------------------------------------------------------------------
+  -- We use a FIFO to keep track of ongoing requests. The purpose is to match ACKs from the Wishbone
+  -- bus with the requests that we have sent.
+  --------------------------------------------------------------------------------------------------
+
   req_fifo: entity work.fifo
     generic map (
       G_WIDTH => C_REQ_FIFO_WIDTH,
@@ -90,8 +471,41 @@ begin
       o_empty => s_fifo_empty
     );
 
+  -- Queue memory requests in the FIFO.
+  s_fifo_wr_en <= s_start_req;
+  s_fifo_wr_data(0) <= s_req_we;
+
+  -- Read from the request FIFO when we get an ACK from the Wishbone bus.
+  s_fifo_rd_en <= i_mem_ack and (not s_fifo_empty);
+
+  --------------------------------------------------------------------------------------------------
+  -- Memory interface: Send requests.
+  --------------------------------------------------------------------------------------------------
+
+  -- TODO(m): These should be controlled by the cache state machine.
+  s_req_en <= i_data_req;
+  s_req_adr <= i_data_adr;
+  s_req_dat <= i_data_dat;
+  s_req_we <= i_data_we;
+  s_req_sel <= i_data_sel;
+
+  -- Is the memory ready to accept new requests?
+  s_mem_ready <= (not i_mem_stall) and (not s_fifo_full);
+
   -- Shall we send a new request?
-  s_start_req <= i_data_req and (not i_mem_stall) and (not s_fifo_full);
+  s_start_req <= s_req_en and s_mem_ready;
+
+  -- Forward all requests to the main memory interface.
+  o_mem_cyc <= s_req_en or (not s_fifo_empty);
+  o_mem_stb <= s_req_en and (not s_fifo_full);
+  o_mem_adr <= s_req_adr;
+  o_mem_dat <= s_req_dat;
+  o_mem_we <= s_req_we;
+  o_mem_sel <= s_req_sel;
+
+  --------------------------------------------------------------------------------------------------
+  -- Memory interface: Receive request responses.
+  --------------------------------------------------------------------------------------------------
 
   -- Write requests are ACKed immediately (on the next cycle) whenever possible.
   process (i_rst, i_clk) is
@@ -99,33 +513,22 @@ begin
     if i_rst = '1' then
       s_immediate_ack <= '0';
     elsif rising_edge(i_clk) then
-      s_immediate_ack <= s_start_req and i_data_we;
+      s_immediate_ack <= s_start_req and s_req_we;
     end if;
   end process;
 
   -- We ignore ACKs from the Wishbone interface that have already been ACKed.
   s_ignore_ack <= s_fifo_rd_data(0);
 
-  -- Queue memory requests in the FIFO. The purpose is to match ACKs from the Wishbone bus with
-  -- the requests that we have sent.
-  s_fifo_wr_en <= s_start_req;
-  s_fifo_wr_data(0) <= i_data_we;
-
-  -- Read from the request FIFO when we get an ACK from the Wishbone bus.
-  s_fifo_rd_en <= i_mem_ack and (not s_fifo_empty);
-
-  -- We just forward all requests to the main memory interface.
-  o_mem_cyc <= i_data_req or (not s_fifo_empty);
-  o_mem_stb <= i_data_req and (not s_fifo_full);
-  o_mem_adr <= i_data_adr;
-  o_mem_dat <= i_data_dat;
-  o_mem_we <= i_data_we;
-  o_mem_sel <= i_data_sel;
-
-  -- ...send the result back.
   -- Note: s_immediate_ack and a non-ignored i_mem_ack SHOULD never happen at the same time.
   -- If they did, one of those ACKs would be lost, which would be bad.
-  o_data_ack <= s_immediate_ack or (i_mem_ack and (not s_ignore_ack));
-  o_data_busy <= i_mem_stall or s_fifo_full;
-  o_data_dat <= i_mem_dat;
+  s_resp_ack <= s_immediate_ack or (i_mem_ack and (not s_ignore_ack));
+  s_resp_dat <= i_mem_dat;
+
+  -- ...send the result back.
+  -- TODO(m): These should be controlled by the cache state machine.
+  o_data_ack <= s_resp_ack;
+  o_data_dat <= s_resp_dat;
+
+  o_data_busy <= not s_mem_ready;  -- TODO(m): s_stall_dc1?
 end rtl;
