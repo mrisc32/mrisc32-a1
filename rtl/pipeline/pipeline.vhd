@@ -36,6 +36,8 @@ entity pipeline is
     i_clk : in std_logic;
     i_rst : in std_logic;
     o_invalidate_icache : out std_logic;
+    o_invalidate_dcache : out std_logic;
+    o_flush_dcache : out std_logic;
 
     -- Instruction cache interface.
     o_instr_req : out std_logic;
@@ -163,6 +165,8 @@ architecture rtl of pipeline is
   signal s_ex_stall : std_logic;
   signal s_invalidate_icache : std_logic;
   signal s_invalidate_branch_predictor : std_logic;
+  signal s_invalidate_dcache : std_logic;
+  signal s_flush_dcache : std_logic;
 
   -- From EX1.
   signal s_ex1_pccorr_target : std_logic_vector(C_WORD_SIZE-1 downto 0);
@@ -497,6 +501,8 @@ begin
       o_stall => s_ex_stall,
       o_invalidate_icache => s_invalidate_icache,
       o_invalidate_branch_predictor => s_invalidate_branch_predictor,
+      o_invalidate_dcache => s_invalidate_dcache,
+      o_flush_dcache => s_flush_dcache,
 
       -- PC signal from ID (sync).
       i_id_pc => s_id_pc,
@@ -740,6 +746,8 @@ begin
 
   -- Cache invalidation signals.
   o_invalidate_icache <= s_invalidate_icache;
+  o_invalidate_dcache <= s_invalidate_dcache;
+  o_flush_dcache <= s_flush_dcache;
 
   -- Determine if we need to cancel speculative instructions.
   s_cancel_speculative_instructions <= s_ex1_pccorr_adjust;

@@ -29,6 +29,8 @@ entity dcache is
     -- Control signals.
     i_clk : in std_logic;
     i_rst : in std_logic;
+    i_invalidate : in std_logic;
+    i_flush : in std_logic;
 
     -- Data interface (slave).
     i_data_req : in std_logic;

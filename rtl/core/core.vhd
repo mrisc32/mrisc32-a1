@@ -67,6 +67,8 @@ end core;
 architecture rtl of core is
   -- Cache control signals.
   signal s_invalidate_icache : std_logic;
+  signal s_invalidate_dcache : std_logic;
+  signal s_flush_dcache : std_logic;
 
   -- Pipeline instruction bus master signals.
   signal s_instr_req : std_logic;
@@ -98,6 +100,8 @@ begin
 
       -- Cache control signals.
       o_invalidate_icache => s_invalidate_icache,
+      o_invalidate_dcache => s_invalidate_dcache,
+      o_flush_dcache => s_flush_dcache,
 
       -- Instruction interface.
       o_instr_req => s_instr_req,
@@ -158,6 +162,8 @@ begin
     port map (
       i_clk => i_clk,
       i_rst => i_rst,
+      i_invalidate => s_invalidate_dcache,
+      i_flush => s_flush_dcache,
 
       -- From data.
       i_data_req => s_data_req,
