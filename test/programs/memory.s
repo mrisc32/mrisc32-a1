@@ -25,35 +25,84 @@
 	.section .text.start, "ax"
 	.globl	_start
 _start:
-	ldi	sp, #0x10000
+	ldi	r1, #0x12345678
+	ldi	r2, #0x99887766
 
 outer_loop:
-	ldi	r1, #0x12345678
+
+	; A simple store + load loop.
+	ldi	sp, #0x10008
+	ldi	r14, #3			; r14 = loop counter
+loop1:
+	add	r3, r1, r2
 
 	stw	r1, [sp, #0]
-	stw	r1, [sp, #4]
-	stw	r1, [sp, #8]
+	stw	r2, [sp, #4]
+	stw	r3, [sp, #8]
 
-	nop
-	nop
-	nop
+	ldw	r4, [sp, #0]
+	ldw	r5, [sp, #4]
+	ldw	r6, [sp, #8]
 
-	ldw	r1, [sp, #0]
-	ldw	r2, [sp, #4]
-	ldw	r3, [sp, #8]
+	seq	r4, r4, r1
+	seq	r5, r5, r2
+	seq	r6, r6, r3
+	and	r5, r5, r6
+	and	r4, r4, r5
+	bns	r4, fail
 
-	nop
-	nop
-	nop
+	ldh	r7, [sp, #0]
+	sth	r7, [sp, #4]
+	ldh	r7, [sp, #2]
+	sth	r7, [sp, #6]
 
-	ldh	r1, [sp, #0]
-	sth	r1, [sp, #4]
-	ldh	r2, [sp, #2]
-	sth	r2, [sp, #6]
+	add	r1, r1, #0x1234
+	add	r2, r2, #0x0123
 
-	nop
-	nop
-	nop
+	add	sp, sp, #12
+	add	r14, r14, #-1
+	bnz	r14, loop1
+
+	; A vectorized store loop
+	ldi	sp, #0x10008
+	ldi	fp, #0xc0000000
+	ldi	r14, #50		; r14 = element counter
+	getsr	vl, #0x10
+	ldea	v1, [r1, #1]
+loop2:
+	min	vl, vl, r14
+	sub	r14, r14, vl
+	stw	r14, [fp, #12]
+	stw	v1, [sp, #4]
+	ldw	r6, [fp, #12]
+	ldea	sp, [sp, vl*4]
+	bnz	r14, loop2
+
+	; A vectorized load loop
+	ldi	sp, #0x10008
+	ldi	fp, #0xc0000000
+	ldi	r14, #50		; r14 = element counter
+	getsr	vl, #0x10
+loop3:
+	min	vl, vl, r14
+	sub	r14, r14, vl
+	ldw	r6, [fp, #12]
+	ldw	v1, [sp, #4]
+	ldw	r6, [fp, #12]
+	ldea	sp, [sp, vl*4]
+	bnz	r14, loop3
 
 	b	outer_loop
+
+
+;--------------------------------------------------------------------------------------------------
+; Test failure.
+;--------------------------------------------------------------------------------------------------
+
+fail:
+	ldi	r1, #0xbaadbeef
+	ldi	sp, #0x10000
+1:
+	stw	r1, [sp, #0]
+	bnz	r1, 1b
 
