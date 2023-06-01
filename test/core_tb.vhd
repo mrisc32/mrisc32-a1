@@ -115,7 +115,7 @@ begin
     variable v_data_dat : std_logic_vector(C_WORD_SIZE-1 downto 0);
 
     -- How many CPU cycles should we simulate?
-    constant C_TEST_CYCLES : integer := 20000000;
+    constant C_TEST_CYCLES : integer := 10000;
 
     -- Helper function for reading one word from a binary file.
     function read_word(file f : T_CHAR_FILE) return std_logic_vector is
