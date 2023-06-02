@@ -133,6 +133,7 @@ architecture rtl of dcache is
   signal s_next_cache_line_done : std_logic;
 
   signal s_repeat_request : std_logic;
+  signal s_next_repeat_request : std_logic;
 
   --------------------------------------------------------------------------------------------------
   -- Pending requests FIFO configuration & signals.
@@ -320,7 +321,7 @@ begin
   end process;
 
   -- Do we need to stall any new cache requests?
-  s_stall_dc1 <= '0' when s_next_state = READY and s_repeat_request = '0' else '1';
+  s_stall_dc1 <= '0' when s_next_state = READY and s_next_repeat_request = '0' else '1';
 
   -- Can we accept new requests from the data interface?
   o_data_busy <= s_stall_dc1;
@@ -334,6 +335,9 @@ begin
   s_req_adr <= s_dc1_data_adr(C_WORD_SIZE-1 downto C_LOG2_WORDS_PER_LINE+2) & s_word_idx;
   s_req_dat <= s_dc1_data_dat;
   s_req_sel <= s_dc1_data_sel;
+
+  -- Should we repeat the current request during the next cycle?
+  s_next_repeat_request <= s_start_req and i_mem_stall;
 
   process(ALL)
   begin
@@ -481,15 +485,11 @@ begin
         if s_can_start_req = '1' and s_cache_line_done = '0' then
           s_req_en <= '1';
           s_req_we <= '0';
+          s_next_word_idx <= std_logic_vector(unsigned(s_word_idx) + 1);
 
-          -- Prepare the next request (unless we got a WB stall, in which case we need to repeat the same request).
-          if i_mem_stall = '0' then
-            s_next_word_idx <= std_logic_vector(unsigned(s_word_idx) + 1);
-
-            -- Final request for this cache line?
-            if s_word_idx = s_last_word_idx then
-              s_next_cache_line_done <= '1';
-            end if;
+          -- Final request for this cache line?
+          if s_word_idx = s_last_word_idx then
+            s_next_cache_line_done <= '1';
           end if;
         end if;
 
@@ -565,17 +565,21 @@ begin
       s_invalidate_addr <= s_next_invalidate_addr;
 
       -- Update the word-within-cache-line counter.
-      s_word_idx <= s_next_word_idx;
+      if s_next_repeat_request = '0' then
+        s_word_idx <= s_next_word_idx;
+      end if;
       if s_next_state = READY then
         s_last_word_idx <= std_logic_vector(unsigned(s_next_word_idx) - 1);
       end if;
 
       -- Keep track of whether or not all requestes for a cache line have been sent to memory.
-      s_cache_line_done <= s_next_cache_line_done;
+      if s_next_repeat_request= '0' then
+        s_cache_line_done <= s_next_cache_line_done;
+      end if;
 
       -- If we got a STALL from the WB interface during the last cycle, we need to repeat the
       -- request (if any).
-      s_repeat_request <= s_start_req and i_mem_stall;
+      s_repeat_request <= s_next_repeat_request;
 
       -- Move to the next requested state.
       s_state <= s_next_state;
