@@ -113,6 +113,7 @@ begin
     variable v_instr_dat : std_logic_vector(C_WORD_SIZE-1 downto 0);
     variable v_write_mask : std_logic_vector(C_WORD_SIZE-1 downto 0);
     variable v_data_dat : std_logic_vector(C_WORD_SIZE-1 downto 0);
+    variable v_do_stall : boolean;
 
     -- How many CPU cycles should we simulate?
     constant C_TEST_CYCLES : integer := 10000;
@@ -216,9 +217,7 @@ begin
     s_clk <= '0';
     wait for 5 ns;
     s_clk <= '1';
-    wait for 5 ns;
-    s_clk <= '0';
-    wait for 5 ns;
+    wait for 1 ns;
 
     -- Run the program.
     for i in 2 to C_TEST_CYCLES-1 loop
@@ -226,6 +225,19 @@ begin
       if (i mod 10000) = 0 then
         report "Cycles: " & integer'image(i);
       end if;
+
+      -- Should we send a stall to the data interface (i.e. we ignore any requests)?
+      v_do_stall := ((i mod 7) = 0);
+      if v_do_stall then
+        s_data_stall <= '1';
+      else
+        s_data_stall <= '0';
+      end if;
+
+      -- Tick the clock.
+      wait for 4 ns;
+      s_clk <= '0';
+      wait for 5 ns;
 
       -- We should now have memory requests from the Wishbone interfaces.
 
@@ -256,7 +268,7 @@ begin
       v_write_mask(15 downto 8) := (others => s_data_sel(1));
       v_write_mask(7 downto 0) := (others => s_data_sel(0));
       v_data_dat := X"00000000";
-      if s_data_cyc = '1' and s_data_stb = '1' then
+      if (not v_do_stall) and s_data_cyc = '1' and s_data_stb = '1' then
         v_mem_idx := to_integer(unsigned(s_data_adr));
         if (v_mem_idx >= 0) and (v_mem_idx < C_MEM_NUM_WORDS) then
           v_data_dat := v_mem_array(v_mem_idx);
@@ -286,11 +298,6 @@ begin
       s_instr_ack <= v_instr_ack_array(0)(C_WORD_SIZE);
       s_data_dat <= v_data_ack_array(0)(C_WORD_SIZE-1 downto 0);
       s_data_ack <= v_data_ack_array(0)(C_WORD_SIZE);
-
-      -- Tick the clock.
-      wait for 4 ns;
-      s_clk <= '0';
-      wait for 5 ns;
     end loop;
 
     -- Close the debug trace file.
