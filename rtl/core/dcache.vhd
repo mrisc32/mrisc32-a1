@@ -481,8 +481,11 @@ begin
         -- Unless we can send a new (non-repeated) request, stick to the current word idx.
         s_next_word_idx <= s_word_idx;
 
-        -- Send a new read request ASAP.
-        if s_can_start_req = '1' and s_cache_line_done = '0' then
+        if s_repeat_request = '1' then
+          s_req_en <= '1';
+          s_req_we <= '0';
+        elsif s_can_start_req = '1' and s_cache_line_done = '0' then
+          -- Send a new read request ASAP.
           s_req_en <= '1';
           s_req_we <= '0';
           s_next_word_idx <= std_logic_vector(unsigned(s_word_idx) + 1);
@@ -523,7 +526,8 @@ begin
           -- Note: it's OK for the FIFO to be full as we won't add a new entry.
           s_req_en <= '1';
           s_req_we <= '0';
-        elsif s_resp_ack = '1' then
+        end if;
+        if s_resp_ack = '1' then
           -- Respond to request.
           o_data_ack <= '1';
           o_data_dat <= s_resp_dat;
@@ -623,7 +627,7 @@ begin
   s_can_start_req <= not s_fifo_full;
 
   -- Shall we send a new request?
-  s_start_req <= s_req_en and s_can_start_req;
+  s_start_req <= s_req_en and (s_can_start_req or s_repeat_request);
 
   -- Forward all requests to the main memory interface.
   o_mem_cyc <= s_req_en or (not s_fifo_empty);
