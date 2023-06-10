@@ -478,13 +478,10 @@ begin
         end if;
 
       when UPDATE_CACHE_LINE =>
-        -- Unless we can send a new (non-repeated) request, stick to the current word idx.
+        -- Unless we can send a request, stick to the current word idx.
         s_next_word_idx <= s_word_idx;
 
-        if s_repeat_request = '1' then
-          s_req_en <= '1';
-          s_req_we <= '0';
-        elsif s_can_start_req = '1' and s_cache_line_done = '0' then
+        if s_cache_line_done = '0' and (s_can_start_req = '1' or s_repeat_request = '1') then
           -- Send a new read request ASAP.
           s_req_en <= '1';
           s_req_we <= '0';
@@ -577,7 +574,7 @@ begin
       end if;
 
       -- Keep track of whether or not all requestes for a cache line have been sent to memory.
-      if s_next_repeat_request= '0' then
+      if s_next_repeat_request = '0' then
         s_cache_line_done <= s_next_cache_line_done;
       end if;
 
