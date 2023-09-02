@@ -1,3 +1,5 @@
+## This repo has moved to: https://gitlab.com/mrisc32/mrisc32-a1
+
 # MRISC32-A1
 
 This is a [VHDL](https://en.wikipedia.org/wiki/VHDL) implementation of a single issue, in-order CPU that implements the [MRISC32](https://github.com/mrisc32/mrisc32) ISA. The working name for the CPU is *MRISC32-A1*.
